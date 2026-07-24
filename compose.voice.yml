@@ -1,0 +1,15 @@
+# Overlay that runs the voice-enabled bot image on the VPS.
+#
+#   docker compose -f compose.yml -f compose.voice.yml up -d --build
+#
+# The Vosk model is mounted from the host (not baked into the image); download it to
+# ./models on the VPS first. See docs/canonical/operations.md.
+services:
+  bot:
+    build:
+      dockerfile: Dockerfile.voice
+    environment:
+      VOICE_ENABLED: "true"
+      VOICE_STT_MODEL_PATH: /app/models/vosk-model-small-pt-0.3
+    volumes:
+      - ./models:/app/models:ro

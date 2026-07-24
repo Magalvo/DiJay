@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:voice": "tsc -p tsconfig.voice-build.json",
     "db:backup": "node dist/infrastructure/sqlite/backup-database.js",
     "dev": "tsx watch src/main.ts",
     "format": "prettier --write .",

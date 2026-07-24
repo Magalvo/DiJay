@@ -1,0 +1,29 @@
+# Voice-enabled image for the VPS.
+#
+# The default Alpine image (Dockerfile) deliberately omits the native voice/STT packages so
+# it stays lean and musl-safe. This Debian (glibc) variant installs them, downloads libvosk
+# via the package install scripts, and builds with the voice infrastructure included.
+FROM node:24-slim AS build
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --include=optional
+COPY tsconfig.json tsconfig.build.json tsconfig.voice-build.json ./
+COPY src ./src
+RUN npm run build:voice
+
+FROM node:24-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+# libgomp1 is required by the Vosk shared library.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --include=optional && npm cache clean --force
+COPY --from=build /app/dist ./dist
+RUN mkdir -p /app/data && chown -R node:node /app
+USER node
+CMD ["node", "dist/main.js"]
