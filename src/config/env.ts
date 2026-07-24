@@ -20,6 +20,8 @@ const environmentSchema = z.object({
   LAVALINK_SECURE: booleanFromString,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  VOICE_ENABLED: booleanFromString,
+  VOICE_STT_MODEL_PATH: z.string().min(1).default("./models/vosk"),
 });
 
 export interface AppConfig {
@@ -41,6 +43,10 @@ export interface AppConfig {
   };
   readonly logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
   readonly nodeEnv: "development" | "test" | "production";
+  readonly voice: {
+    readonly enabled: boolean;
+    readonly modelPath: string;
+  };
 }
 
 export function parseEnv(environment: Record<string, string | undefined>): AppConfig {
@@ -70,5 +76,9 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     logLevel: result.data.LOG_LEVEL,
     nodeEnv: result.data.NODE_ENV,
+    voice: {
+      enabled: result.data.VOICE_ENABLED,
+      modelPath: result.data.VOICE_STT_MODEL_PATH,
+    },
   };
 }

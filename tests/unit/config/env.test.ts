@@ -34,6 +34,15 @@ describe("parseEnv", () => {
     });
   });
 
+  it("disables voice recognition by default and can enable it", () => {
+    expect(parseEnv(validEnv)).toMatchObject({
+      voice: { enabled: false, modelPath: "./models/vosk" },
+    });
+    expect(
+      parseEnv({ ...validEnv, VOICE_ENABLED: "true", VOICE_STT_MODEL_PATH: "/opt/vosk-pt" }),
+    ).toMatchObject({ voice: { enabled: true, modelPath: "/opt/vosk-pt" } });
+  });
+
   it("accepts a custom bot activity text", () => {
     expect(parseEnv({ ...validEnv, BOT_STATUS_TEXT: "pedidos com /play" })).toMatchObject({
       botStatusText: "pedidos com /play",
