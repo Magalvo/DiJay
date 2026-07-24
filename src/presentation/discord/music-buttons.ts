@@ -1,10 +1,14 @@
 import type { DiscordButtonHandler } from "./command.js";
 import { buildControlPanel, musicButtonIds } from "./control-panel.js";
 import { playbackRequestFromInteraction } from "./interaction-context.js";
+import type { LivePanelManager } from "./live-panel.js";
 import type { MusicService } from "../../application/music/music-service.js";
 import type { LoopMode } from "../../domain/music/track.js";
 
-export function createMusicButtonHandlers(music: MusicService): readonly DiscordButtonHandler[] {
+export function createMusicButtonHandlers(
+  music: MusicService,
+  livePanel: LivePanelManager,
+): readonly DiscordButtonHandler[] {
   return Object.values(musicButtonIds).map((customId) => ({
     customId,
     async execute(interaction) {
@@ -33,6 +37,8 @@ export function createMusicButtonHandlers(music: MusicService): readonly Discord
 
       const state = await music.getState(request.guildId);
       await interaction.editReply(buildControlPanel(state));
+      // The panel the user just interacted with becomes the live one for this guild.
+      livePanel.register(request.guildId, interaction.channelId, interaction.message.id);
     },
   }));
 }

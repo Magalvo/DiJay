@@ -19,6 +19,7 @@ import { SqlitePlaylistRepository } from "./infrastructure/sqlite/sqlite-playlis
 import { CommandRegistry } from "./presentation/discord/command-registry.js";
 import { createDiscordCommands } from "./presentation/discord/commands.js";
 import { configureBotPresence } from "./presentation/discord/bot-presence.js";
+import { LivePanelManager } from "./presentation/discord/live-panel.js";
 import { createMusicButtonHandlers } from "./presentation/discord/music-buttons.js";
 
 export async function startBot(config: AppConfig): Promise<void> {
@@ -73,9 +74,10 @@ export async function startBot(config: AppConfig): Promise<void> {
   );
   const music = new MusicService(new PoruMusicGateway(poru, settingsRepository));
   const playlists = new PlaylistService(playlistRepository, music);
+  const livePanel = new LivePanelManager(client, music, logger);
   const registry = new CommandRegistry(
-    createDiscordCommands(music, settings, playlists),
-    createMusicButtonHandlers(music),
+    createDiscordCommands(music, settings, playlists, livePanel),
+    createMusicButtonHandlers(music, livePanel),
     logger,
     accessPolicy,
   );
@@ -112,6 +114,12 @@ export async function startBot(config: AppConfig): Promise<void> {
   });
 
   client.on(Events.InteractionCreate, (interaction) => {
+    if (interaction.isAutocomplete()) {
+      void registry.autocomplete(interaction).catch((error: unknown) => {
+        logger.error({ error }, "Could not respond to autocomplete");
+      });
+      return;
+    }
     if (!interaction.isChatInputCommand() && !interaction.isButton()) {
       return;
     }
@@ -133,6 +141,7 @@ export async function startBot(config: AppConfig): Promise<void> {
   });
   poru.on("trackStart", (player, track) => {
     idlePlayers.cancel(player.guildId);
+    void livePanel.refresh(player.guildId);
     void settingsRepository
       .get(player.guildId)
       .then(async (guildSettings) => {
@@ -161,6 +170,7 @@ export async function startBot(config: AppConfig): Promise<void> {
     );
   });
   poru.on("queueEnd", (player) => {
+    void livePanel.refresh(player.guildId);
     void settingsRepository
       .get(player.guildId)
       .then((guildSettings) => {
@@ -177,6 +187,9 @@ export async function startBot(config: AppConfig): Promise<void> {
   });
   poru.on("playerDestroy", (player) => {
     idlePlayers.cancel(player.guildId);
+    void livePanel.refresh(player.guildId).finally(() => {
+      livePanel.clear(player.guildId);
+    });
   });
 
   let shuttingDown = false;

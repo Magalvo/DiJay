@@ -1,7 +1,7 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 import type { PlaybackStateSnapshot } from "../../domain/music/track.js";
-import { formatDuration } from "./music-formatters.js";
+import { MUTED_COLOR, baseEmbed, nowPlayingEmbed } from "./embeds.js";
 
 export const musicButtonIds = {
   loop: "music:loop",
@@ -14,37 +14,9 @@ export const musicButtonIds = {
 
 export function buildControlPanel(state: PlaybackStateSnapshot | null) {
   const unavailable = state?.current === undefined || state.current === null;
-  const embed = new EmbedBuilder().setColor(unavailable ? 0x747f8d : 0x5865f2);
-
-  if (unavailable) {
-    embed.setTitle("DiJay").setDescription("Não há música em reprodução.");
-  } else {
-    const progress = state.current.isStream
-      ? "LIVE"
-      : `${progressBar(state.positionMs, state.current.durationMs)} ${formatDuration(
-          state.positionMs,
-          false,
-        )} / ${formatDuration(state.current.durationMs, false)}`;
-    embed
-      .setTitle(state.current.title)
-      .setDescription(`${state.current.author}\n${progress}`)
-      .addFields(
-        { inline: true, name: "Volume", value: `${state.volume}%` },
-        { inline: true, name: "Loop", value: loopLabel(state.loopMode) },
-        { inline: true, name: "Fila", value: `${state.upcoming.length}` },
-        {
-          inline: true,
-          name: "Pedido por",
-          value:
-            state.current.requesterId === null || state.current.requesterId === undefined
-              ? "Desconhecido"
-              : `<@${state.current.requesterId}>`,
-        },
-      );
-    if (state.current.uri !== null) {
-      embed.setURL(state.current.uri);
-    }
-  }
+  const embed = unavailable
+    ? baseEmbed(MUTED_COLOR).setTitle("DiJay").setDescription("Não há música em reprodução.")
+    : nowPlayingEmbed(state);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -86,15 +58,4 @@ export function buildControlPanel(state: PlaybackStateSnapshot | null) {
       .setStyle(ButtonStyle.Secondary),
   );
   return { components: [row, refreshRow], embeds: [embed] };
-}
-
-function progressBar(positionMs: number, durationMs: number): string {
-  const slots = 12;
-  const ratio = durationMs <= 0 ? 0 : Math.min(1, Math.max(0, positionMs / durationMs));
-  const filled = Math.round(ratio * slots);
-  return `${"▬".repeat(filled)}🔘${"▬".repeat(slots - filled)}`;
-}
-
-function loopLabel(mode: PlaybackStateSnapshot["loopMode"]): string {
-  return mode === "track" ? "Faixa" : mode === "queue" ? "Fila" : "Desligado";
 }

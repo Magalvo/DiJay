@@ -20,9 +20,9 @@ describe("music formatters", () => {
 
     const output = formatQueue({ current: tracks[0]!, upcoming: tracks.slice(1) }, 5);
 
-    expect(output).toContain("Now playing");
+    expect(output).toContain("A tocar agora");
     expect(output).toContain("Track 5");
-    expect(output).toContain("…and 10 more");
+    expect(output).toContain("…e mais 10");
     expect(output).not.toContain("Track 15");
   });
 });

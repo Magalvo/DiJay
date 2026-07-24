@@ -9,6 +9,7 @@ export const commandData = [
         .setName("query")
         .setDescription("Nome, URL da faixa ou playlist")
         .setMaxLength(500)
+        .setAutocomplete(true)
         .setRequired(true),
     )
     .addStringOption((option) =>

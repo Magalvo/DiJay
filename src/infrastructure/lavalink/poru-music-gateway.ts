@@ -226,11 +226,13 @@ export class PoruMusicGateway implements MusicGateway {
   private toDomainTrack(track: PoruTrack): Track {
     const requester = track.info.requester as unknown;
     return {
+      artworkUrl: track.info.artworkUrl ?? null,
       author: track.info.author,
       durationMs: track.info.length,
       isStream: track.info.isStream,
       requesterId:
         typeof requester === "string" ? requester : this.requesterIdFromObject(requester),
+      sourceName: track.info.sourceName ?? null,
       title: track.info.title,
       uri: track.info.uri ?? null,
     };
