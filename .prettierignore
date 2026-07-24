@@ -1,0 +1,8 @@
+coverage
+dist
+node_modules
+package-lock.json
+AGENTS.md
+Directory Structure.txt
+work-item-template.md
+work-spec-template.md

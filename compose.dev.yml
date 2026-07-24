@@ -1,0 +1,4 @@
+services:
+  lavalink:
+    ports:
+      - "127.0.0.1:2333:2333"

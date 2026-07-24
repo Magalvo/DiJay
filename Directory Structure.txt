@@ -1,0 +1,20 @@
+sdd-project-base/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # Automated validation (CI gates)
+├── docs/
+│   ├── canonical/             # Project knowledge: architecture decisions and conventions (long-term memory)
+│   │   └── README.md
+│   ├── work-tracks/           # Big-picture initiatives / Epics (organizes effort over weeks/months)
+│   ├── work-items/            # Atomic tasks with acceptance criteria[cite: 1]
+│   │   └── templates/
+│   │       └── work-item-template.md
+│   └── work-specs/            # Implementation detail: precise instructions executed by the agent[cite: 1]
+│       └── templates/
+│           └── work-spec-template.md
+├── src/                       # Source code
+├── tests/                     # Test suite required for the TDD loop[cite: 1]
+├── .husky/                    # Pre-commit hooks to block bad output from history[cite: 1]
+├── AGENTS.md                  # The Project Constitution (read by the agent on entry)[cite: 1]
+├── package.json               # Tooling, lint, and test scripts
+└── tsconfig.json              # Type checking configuration

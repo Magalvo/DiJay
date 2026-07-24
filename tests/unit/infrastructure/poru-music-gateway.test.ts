@@ -1,0 +1,135 @@
+import type { Poru } from "poru";
+import { describe, expect, it, vi } from "vitest";
+
+import type { PlaybackRequest } from "../../../src/application/music/music-gateway.js";
+import { PoruMusicGateway } from "../../../src/infrastructure/lavalink/poru-music-gateway.js";
+
+const request: PlaybackRequest = {
+  guildId: "guild-1",
+  requesterId: "user-1",
+  textChannelId: "text-1",
+  voiceChannelId: "voice-1",
+};
+
+function poruTrack(title: string) {
+  return {
+    info: {
+      author: "Artist",
+      isStream: false,
+      length: 180_000,
+      requester: "user-1",
+      title,
+      uri: `https://example.test/${title}`,
+    },
+  };
+}
+
+describe("PoruMusicGateway", () => {
+  it("queues the first search result and starts an idle player", async () => {
+    const player = {
+      currentTrack: null,
+      isPaused: false,
+      isPlaying: false,
+      play: vi.fn().mockResolvedValue(undefined),
+      queue: {
+        add: vi.fn(),
+        size: 1,
+      },
+      setTextChannel: vi.fn(),
+      voiceChannel: "voice-1",
+    };
+    const poru = {
+      createConnection: vi.fn().mockReturnValue(player),
+      get: vi.fn().mockReturnValue(null),
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "search",
+        playlistInfo: {},
+        tracks: [poruTrack("First"), poruTrack("Second")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const result = await gateway.enqueue({ ...request, position: "queue", query: "song" });
+
+    expect(player.queue.add).toHaveBeenCalledTimes(1);
+    expect(player.play).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      added: [{ title: "First" }],
+      playlistName: null,
+      startedPlaying: true,
+    });
+  });
+
+  it("blocks controls from a different voice channel", async () => {
+    const poru = {
+      get: vi.fn().mockReturnValue({
+        currentTrack: poruTrack("Current"),
+        voiceChannel: "voice-2",
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    await expect(gateway.pause(request)).rejects.toMatchObject({
+      code: "NOT_IN_SAME_VOICE_CHANNEL",
+    });
+  });
+
+  it("places a requested track next without replacing the current track", async () => {
+    const queue = [poruTrack("Existing")];
+    Object.assign(queue, {
+      add: vi.fn(),
+    });
+    Object.defineProperty(queue, "size", { get: () => queue.length });
+    const player = {
+      currentTrack: poruTrack("Current"),
+      isPaused: false,
+      isPlaying: true,
+      queue,
+      setTextChannel: vi.fn(),
+      voiceChannel: "voice-1",
+    };
+    const poru = {
+      get: vi.fn().mockReturnValue(player),
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "track",
+        playlistInfo: {},
+        tracks: [poruTrack("Next")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    await gateway.enqueue({ ...request, position: "next", query: "next song" });
+
+    expect(queue.map((track) => track.info.title)).toEqual(["Next", "Existing"]);
+  });
+
+  it("places a requested track first and skips the current track for play-now", async () => {
+    const queue = [poruTrack("Existing")];
+    Object.assign(queue, { add: vi.fn() });
+    Object.defineProperty(queue, "size", { get: () => queue.length });
+    const skip = vi.fn().mockResolvedValue(undefined);
+    const player = {
+      currentTrack: poruTrack("Current"),
+      isPaused: false,
+      isPlaying: true,
+      queue,
+      setTextChannel: vi.fn(),
+      skip,
+      voiceChannel: "voice-1",
+    };
+    const poru = {
+      get: vi.fn().mockReturnValue(player),
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "track",
+        playlistInfo: {},
+        tracks: [poruTrack("Now")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    await gateway.enqueue({ ...request, position: "now", query: "now song" });
+
+    expect(queue.map((track) => track.info.title)).toEqual(["Now", "Existing"]);
+    expect(skip).toHaveBeenCalledOnce();
+  });
+});
