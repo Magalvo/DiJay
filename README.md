@@ -1,5 +1,9 @@
 # DiJay
 
+<p align="center">
+  <img width="100%" height="100%" src="https://github.com/Magalvo/DiJay/blob/main/docs/DiJayBG.png">
+</p>
+
 Bot privado de música para Discord, construído com TypeScript estrito, SDD/TDD,
 Discord.js, Lavalink v4 e SQLite integrado no Node.js.
 
