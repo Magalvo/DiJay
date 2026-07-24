@@ -92,8 +92,10 @@ export async function startBot(config: AppConfig): Promise<void> {
       });
       logger.info({ modelPath: config.voice.modelPath }, "Voice recognition enabled");
     } catch (error) {
+      // Log under `err` so pino prints the real message and stack (e.g. a missing native
+      // library or model path), not an empty object.
       logger.error(
-        { error },
+        { err: error },
         "Voice recognition could not start; install optional deps and a Vosk model",
       );
     }

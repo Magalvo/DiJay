@@ -3,5 +3,6 @@ coverage/
 dist/
 data/
 logs/
+models/
 node_modules/
 *.log
