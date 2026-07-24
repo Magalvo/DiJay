@@ -21,6 +21,7 @@ import { createDiscordCommands } from "./presentation/discord/commands.js";
 import { configureBotPresence } from "./presentation/discord/bot-presence.js";
 import { LivePanelManager } from "./presentation/discord/live-panel.js";
 import { createMusicButtonHandlers } from "./presentation/discord/music-buttons.js";
+import type { CreateVoiceFeature, VoiceFeature } from "./presentation/discord/voice-feature.js";
 
 export async function startBot(config: AppConfig): Promise<void> {
   const logger = pino(
@@ -75,8 +76,38 @@ export async function startBot(config: AppConfig): Promise<void> {
   const music = new MusicService(new PoruMusicGateway(poru, settingsRepository));
   const playlists = new PlaylistService(playlistRepository, music);
   const livePanel = new LivePanelManager(client, music, logger);
+
+  let voiceFeature: VoiceFeature | undefined;
+  if (config.voice.enabled) {
+    try {
+      // Variable specifier so the production build never pulls in the optional voice deps.
+      const specifier = "./infrastructure/voice/index.js";
+      const voiceModule = (await import(specifier)) as {
+        readonly createVoiceFeature: CreateVoiceFeature;
+      };
+      voiceFeature = voiceModule.createVoiceFeature({
+        logger,
+        modelPath: config.voice.modelPath,
+        music,
+      });
+      logger.info({ modelPath: config.voice.modelPath }, "Voice recognition enabled");
+    } catch (error) {
+      logger.error(
+        { error },
+        "Voice recognition could not start; install optional deps and a Vosk model",
+      );
+    }
+  }
+
+  const voice = voiceFeature;
   const registry = new CommandRegistry(
-    createDiscordCommands(music, settings, playlists, livePanel),
+    createDiscordCommands(
+      music,
+      settings,
+      playlists,
+      livePanel,
+      voice === undefined ? undefined : (interaction) => voice.handleListen(interaction),
+    ),
     createMusicButtonHandlers(music, livePanel),
     logger,
     accessPolicy,
@@ -201,6 +232,7 @@ export async function startBot(config: AppConfig): Promise<void> {
     registry.stopAccepting();
     health.beginShutdown();
     idlePlayers.clear();
+    voice?.dispose();
     logger.info({ signal }, "Shutting down");
     await Promise.allSettled([...poru.players.values()].map((player) => player.destroy()));
     await Promise.allSettled([...poru.nodes.values()].map((node) => node.disconnect()));

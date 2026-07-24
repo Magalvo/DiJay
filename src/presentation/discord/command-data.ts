@@ -170,6 +170,9 @@ export const commandData = [
     ),
   new SlashCommandBuilder().setName("help").setDescription("Mostra os comandos disponíveis."),
   new SlashCommandBuilder().setName("ping").setDescription("Verifica a latência do bot."),
+  new SlashCommandBuilder()
+    .setName("listen")
+    .setDescription("Ouve um comando de voz durante alguns segundos (experimental)."),
 ].map((builder) => builder.setContexts(InteractionContextType.Guild));
 
 export const commandDataByName = new Map(commandData.map((data) => [data.name, data]));
