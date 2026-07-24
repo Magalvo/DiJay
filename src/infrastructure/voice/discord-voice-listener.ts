@@ -63,13 +63,23 @@ export class DiscordVoiceListener {
 function collect(stream: Readable, maxDurationMs: number): Promise<Buffer> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
+    let settled = false;
+    // Resolve on any terminal signal, including the timeout itself. `destroy()` emits
+    // `close` (not `end`), and a silent speaker may never emit either, so without the timer
+    // resolving directly the capture — and the deferred reply — would hang forever.
     const finish = (): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       clearTimeout(timer);
+      stream.destroy();
       resolve(Buffer.concat(chunks));
     };
-    const timer = setTimeout(() => stream.destroy(), maxDurationMs);
+    const timer = setTimeout(finish, maxDurationMs);
     stream.on("data", (chunk: Buffer) => chunks.push(chunk));
     stream.once("end", finish);
+    stream.once("close", finish);
     stream.once("error", finish);
   });
 }
