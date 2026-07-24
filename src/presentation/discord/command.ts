@@ -1,4 +1,5 @@
 import type {
+  AutocompleteInteraction,
   ButtonInteraction,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
@@ -15,6 +16,7 @@ export interface DiscordCommandData {
 
 export interface DiscordCommand {
   readonly data: DiscordCommandData;
+  autocomplete?(interaction: AutocompleteInteraction): Promise<void>;
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 

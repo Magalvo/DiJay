@@ -1,4 +1,4 @@
-import type { ChatInputCommandInteraction } from "discord.js";
+import { type ChatInputCommandInteraction, MessageFlags } from "discord.js";
 
 import type { MusicService } from "../../application/music/music-service.js";
 import type { PlaylistService } from "../../application/playlists/playlist-service.js";
@@ -7,8 +7,16 @@ import type { LoopMode, QueuePlacement } from "../../domain/music/track.js";
 import type { DiscordCommand } from "./command.js";
 import { commandDataByName } from "./command-data.js";
 import { buildControlPanel } from "./control-panel.js";
+import {
+  helpEmbed,
+  nowPlayingEmbed,
+  playlistAddedEmbed,
+  queueEmbed,
+  trackAddedEmbed,
+} from "./embeds.js";
 import { guildIdFromInteraction, playbackRequestFromInteraction } from "./interaction-context.js";
-import { formatQueue, formatTrack, truncateDiscordMessage } from "./music-formatters.js";
+import type { LivePanelManager } from "./live-panel.js";
+import { formatDuration, formatTrack, truncateDiscordMessage } from "./music-formatters.js";
 
 function data(name: string) {
   const definition = commandDataByName.get(name);
@@ -22,36 +30,59 @@ export function createDiscordCommands(
   music: MusicService,
   settings: GuildSettingsService,
   playlists: PlaylistService,
+  livePanel: LivePanelManager,
 ): readonly DiscordCommand[] {
   return [
     {
       data: data("play"),
+      async autocomplete(interaction) {
+        const query = interaction.options.getFocused().trim();
+        if (query.length === 0) {
+          await interaction.respond([]);
+          return;
+        }
+        try {
+          const tracks = await music.resolve(query, interaction.user.id);
+          await interaction.respond(
+            tracks.slice(0, 25).map((track) => ({
+              name: truncateDiscordMessage(
+                `${track.title} — ${track.author} · ${formatDuration(track.durationMs, track.isStream)}`,
+                100,
+              ),
+              value: (track.uri ?? track.title).slice(0, 100),
+            })),
+          );
+        } catch {
+          await interaction.respond([]);
+        }
+      },
       async execute(interaction) {
         const request = playbackRequestFromInteraction(interaction);
         const query = interaction.options.getString("query", true);
         const position = (interaction.options.getString("position") ?? "queue") as QueuePlacement;
         await interaction.deferReply();
         const result = await music.play({ ...request, position, query });
-        const content =
+        const embed =
           result.playlistName === null
-            ? `🎵 Adicionada à fila: ${formatTrack(result.added[0]!)}`
-            : `🎵 Playlist **${result.playlistName}** adicionada com ${result.added.length} faixas.`;
-        await interaction.editReply(truncateDiscordMessage(content));
+            ? trackAddedEmbed(result.added[0]!, position)
+            : playlistAddedEmbed(result.playlistName, result.added.length);
+        await interaction.editReply({ embeds: [embed] });
+        await livePanel.refresh(request.guildId);
       },
     },
-    simpleControl("pause", music, async (service, interaction) => {
+    simpleControl("pause", music, livePanel, async (service, interaction) => {
       await service.pause(playbackRequestFromInteraction(interaction));
       return "⏸️ Reprodução pausada.";
     }),
-    simpleControl("resume", music, async (service, interaction) => {
+    simpleControl("resume", music, livePanel, async (service, interaction) => {
       await service.resume(playbackRequestFromInteraction(interaction));
       return "▶️ Reprodução retomada.";
     }),
-    simpleControl("skip", music, async (service, interaction) => {
+    simpleControl("skip", music, livePanel, async (service, interaction) => {
       const skipped = await service.skip(playbackRequestFromInteraction(interaction));
       return `⏭️ Saltada: ${formatTrack(skipped)}`;
     }),
-    simpleControl("stop", music, async (service, interaction) => {
+    simpleControl("stop", music, livePanel, async (service, interaction) => {
       await service.stop(playbackRequestFromInteraction(interaction));
       return "⏹️ Fila limpa. Até à próxima!";
     }),
@@ -59,68 +90,86 @@ export function createDiscordCommands(
       data: data("queue"),
       async execute(interaction) {
         const snapshot = await music.getQueue(guildIdFromInteraction(interaction));
-        await interaction.reply(snapshot === null ? "A fila está vazia." : formatQueue(snapshot));
+        await interaction.reply({
+          embeds: [queueEmbed(snapshot ?? { current: null, upcoming: [] })],
+        });
       },
     },
     {
       data: data("nowplaying"),
       async execute(interaction) {
         const state = await music.getState(guildIdFromInteraction(interaction));
-        await interaction.reply(
-          state?.current === undefined || state.current === null
-            ? "Não há música em reprodução."
-            : `🎧 ${formatTrack(state.current)}`,
-        );
+        if (state?.current === undefined || state.current === null) {
+          await interaction.reply({
+            content: "Não há música em reprodução.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        await interaction.reply({ embeds: [nowPlayingEmbed(state)] });
       },
     },
     {
       data: data("control"),
       async execute(interaction) {
-        const state = await music.getState(guildIdFromInteraction(interaction));
-        await interaction.reply(buildControlPanel(state));
+        const guildId = guildIdFromInteraction(interaction);
+        const state = await music.getState(guildId);
+        const response = await interaction.reply({
+          ...buildControlPanel(state),
+          withResponse: true,
+        });
+        const message = response.resource?.message;
+        if (message !== null && message !== undefined) {
+          livePanel.register(guildId, message.channelId, message.id);
+        }
       },
     },
     {
       data: data("volume"),
       async execute(interaction) {
+        const request = playbackRequestFromInteraction(interaction);
         const volume = interaction.options.getInteger("level", true);
-        await music.setVolume({ ...playbackRequestFromInteraction(interaction), volume });
+        await music.setVolume({ ...request, volume });
         await interaction.reply(`🔊 Volume alterado para **${volume}%**.`);
+        await livePanel.refresh(request.guildId);
       },
     },
     {
       data: data("loop"),
       async execute(interaction) {
+        const request = playbackRequestFromInteraction(interaction);
         const mode = interaction.options.getString("mode", true) as LoopMode;
-        await music.setLoop({ ...playbackRequestFromInteraction(interaction), mode });
+        await music.setLoop({ ...request, mode });
         await interaction.reply(`🔁 Loop: **${loopLabel(mode)}**.`);
+        await livePanel.refresh(request.guildId);
       },
     },
-    simpleControl("shuffle", music, async (service, interaction) => {
+    simpleControl("shuffle", music, livePanel, async (service, interaction) => {
       const count = await service.shuffle(playbackRequestFromInteraction(interaction));
       return `🔀 ${count} músicas foram baralhadas.`;
     }),
     {
       data: data("remove"),
       async execute(interaction) {
+        const request = playbackRequestFromInteraction(interaction);
         const position = interaction.options.getInteger("position", true);
-        const removed = await music.remove({
-          ...playbackRequestFromInteraction(interaction),
-          position,
-        });
+        const removed = await music.remove({ ...request, position });
         await interaction.reply(`🗑️ Removida: ${formatTrack(removed)}`);
+        await livePanel.refresh(request.guildId);
       },
     },
-    simpleControl("clear", music, async (service, interaction) => {
+    simpleControl("clear", music, livePanel, async (service, interaction) => {
       const count = await service.clear(playbackRequestFromInteraction(interaction));
       return `🧹 ${count} músicas removidas da fila.`;
     }),
     {
       data: data("seek"),
       async execute(interaction) {
+        const request = playbackRequestFromInteraction(interaction);
         const positionMs = parseSeek(interaction.options.getString("position", true));
-        await music.seek({ ...playbackRequestFromInteraction(interaction), positionMs });
+        await music.seek({ ...request, positionMs });
         await interaction.reply(`⏩ Posição alterada para **${formatSeek(positionMs)}**.`);
+        await livePanel.refresh(request.guildId);
       },
     },
     {
@@ -138,15 +187,7 @@ export function createDiscordCommands(
     {
       data: data("help"),
       async execute(interaction) {
-        await interaction.reply({
-          content:
-            "**DiJay privado**\n" +
-            "`/play` · `/queue` · `/control` · `/nowplaying`\n" +
-            "`/pause` · `/resume` · `/skip` · `/stop` · `/volume`\n" +
-            "`/loop` · `/shuffle` · `/remove` · `/clear` · `/seek`\n" +
-            "`/playlist` · `/settings` · `/ping`",
-          ephemeral: true,
-        });
+        await interaction.reply({ embeds: [helpEmbed()], flags: MessageFlags.Ephemeral });
       },
     },
     {
@@ -161,12 +202,14 @@ export function createDiscordCommands(
 function simpleControl(
   name: string,
   music: MusicService,
+  livePanel: LivePanelManager,
   action: (service: MusicService, interaction: ChatInputCommandInteraction) => Promise<string>,
 ): DiscordCommand {
   return {
     data: data(name),
     async execute(interaction) {
       await interaction.reply(await action(music, interaction));
+      await livePanel.refresh(guildIdFromInteraction(interaction));
     },
   };
 }

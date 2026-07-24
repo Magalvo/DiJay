@@ -1,4 +1,9 @@
-import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
+import {
+  type AutocompleteInteraction,
+  type ButtonInteraction,
+  type ChatInputCommandInteraction,
+  MessageFlags,
+} from "discord.js";
 
 import type { GuildAccessPolicy } from "../../application/security/guild-access-policy.js";
 import { MusicError } from "../../domain/music/music-error.js";
@@ -54,12 +59,31 @@ export class CommandRegistry {
     this.accepting = false;
   }
 
+  public async autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+    if (!this.accepting || !this.accessPolicy.isAllowed(interaction.guildId)) {
+      await interaction.respond([]);
+      return;
+    }
+    const handler = this.commands.get(interaction.commandName);
+    try {
+      await handler?.autocomplete?.(interaction);
+    } catch (error) {
+      this.logger.error(
+        { error, guildId: interaction.guildId, interaction: interaction.commandName },
+        "Discord autocomplete failed",
+      );
+      if (!interaction.responded) {
+        await interaction.respond([]);
+      }
+    }
+  }
+
   public async execute(interaction: SupportedInteraction): Promise<void> {
     try {
       if (!this.accepting) {
         await interaction.reply({
           content: "O bot está a reiniciar. Tenta novamente dentro de instantes.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -68,7 +92,10 @@ export class CommandRegistry {
         ? this.buttons.get(interaction.customId)
         : this.commands.get(interaction.commandName);
       if (handler === undefined) {
-        await interaction.reply({ content: "Controlo desconhecido.", ephemeral: true });
+        await interaction.reply({
+          content: "Controlo desconhecido.",
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       await handler.execute(interaction as never);
@@ -96,6 +123,6 @@ export class CommandRegistry {
       await interaction.editReply({ content });
       return;
     }
-    await interaction.reply({ content, ephemeral: true });
+    await interaction.reply({ content, flags: MessageFlags.Ephemeral });
   }
 }
