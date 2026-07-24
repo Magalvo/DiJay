@@ -31,6 +31,7 @@ export function createDiscordCommands(
   settings: GuildSettingsService,
   playlists: PlaylistService,
   livePanel: LivePanelManager,
+  voiceListen?: (interaction: ChatInputCommandInteraction) => Promise<void>,
 ): readonly DiscordCommand[] {
   return [
     {
@@ -194,6 +195,19 @@ export function createDiscordCommands(
       data: data("ping"),
       async execute(interaction) {
         await interaction.reply(`🏓 Pong! ${interaction.client.ws.ping} ms`);
+      },
+    },
+    {
+      data: data("listen"),
+      async execute(interaction) {
+        if (voiceListen === undefined) {
+          await interaction.reply({
+            content: "🎙️ Reconhecimento de voz desativado neste servidor.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        await voiceListen(interaction);
       },
     },
   ];

@@ -61,6 +61,31 @@ docker compose exec bot npm run db:backup
 As instruções completas de instalação, atualização, rollback e restauro estão em
 [`docs/canonical/operations.md`](docs/canonical/operations.md).
 
+## Reconhecimento de voz (experimental)
+
+Opcional e desligado por defeito. Permite dar comandos falados em português via
+push-to-talk com `/listen`, usando o motor open-source **Vosk** (offline) e a captura
+`@discordjs/voice`. As dependências nativas são `optionalDependencies` e não fazem parte
+da imagem de produção Alpine.
+
+Para experimentar em desenvolvimento:
+
+1. Instala as dependências opcionais:
+
+```bash
+npm install --include=optional
+```
+
+2. Descarrega um [modelo Vosk em português](https://alphacephei.com/vosk/models) para o
+   caminho de `VOICE_STT_MODEL_PATH` (por omissão `./models/vosk`).
+3. No `.env`, define `VOICE_ENABLED=true` e arranca o bot com `npm run dev`.
+4. Num canal de voz, usa `/listen` e diz um comando, por exemplo "salta", "pausa",
+   "volume 40" ou "toca daft punk". A palavra-passe "DiJay" é opcional.
+
+Como o Lavalink detém a ligação de voz do servidor durante a reprodução, `/listen` assume
+a ligação numa janela curta de escuta. Valida o comportamento no teu servidor antes de o
+ativar em produção. A infraestrutura de voz é verificada por `npm run typecheck:voice`.
+
 ## Arquitetura
 
 ```text

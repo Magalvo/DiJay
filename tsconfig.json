@@ -18,5 +18,8 @@
     "target": "ES2023",
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "eslint.config.js", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "eslint.config.js", "vitest.config.ts"],
+  // The optional voice infrastructure is validated separately via tsconfig.voice.json so
+  // the main pipeline never depends on the native voice/STT packages.
+  "exclude": ["src/infrastructure/voice/**"]
 }

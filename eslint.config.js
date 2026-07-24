@@ -3,7 +3,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage/**", "dist/**", "eslint.config.js", "node_modules/**"],
+    ignores: [
+      "coverage/**",
+      "dist/**",
+      "eslint.config.js",
+      "node_modules/**",
+      // Optional feature; type-checked on demand via `npm run typecheck:voice`.
+      "src/infrastructure/voice/**",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
