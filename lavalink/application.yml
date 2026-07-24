@@ -6,6 +6,9 @@ lavalink:
   plugins:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.4"
       snapshot: false
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      repository: "https://maven.lavalink.dev/releases"
+      snapshot: false
   server:
     password: ${LAVALINK_SERVER_PASSWORD}
     playerUpdateInterval: 5
@@ -40,6 +43,28 @@ plugins:
       - ANDROID_VR
       - WEB
       - WEBEMBEDDED
+  lavasrc:
+    # Spotify is a "mirror" source: LavaSrc reads Spotify metadata and streams the
+    # audio through these providers. ISRC matching is the most accurate mirror.
+    providers:
+      - 'ytsearch:"%ISRC%"'
+      - "ytsearch:%QUERY%"
+    sources:
+      spotify: true
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+      flowerytts: false
+      youtube: false
+    spotify:
+      # Credentials are resolved from the Lavalink container environment. When they are
+      # empty, LavaSrc simply cannot resolve Spotify links and other sources keep working.
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      countryCode: "${SPOTIFY_COUNTRY_CODE:PT}"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+      resolveArtistsInSearch: true
 
 logging:
   level:
