@@ -6,6 +6,7 @@ const booleanFromString = z
   .transform((value) => value === "true");
 
 const environmentSchema = z.object({
+  BOT_STATUS_TEXT: z.string().trim().min(1).max(128).default("música | /play"),
   DATA_DIR: z.string().min(1).default("./data"),
   DEFAULT_VOLUME: z.coerce.number().int().min(0).max(150).default(80),
   DISCORD_CLIENT_ID: z.string().regex(/^\d{17,20}$/),
@@ -22,6 +23,7 @@ const environmentSchema = z.object({
 });
 
 export interface AppConfig {
+  readonly botStatusText: string;
   readonly dataDir: string;
   readonly defaultVolume: number;
   readonly discord: {
@@ -50,6 +52,7 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
   }
 
   return {
+    botStatusText: result.data.BOT_STATUS_TEXT,
     dataDir: result.data.DATA_DIR,
     defaultVolume: result.data.DEFAULT_VOLUME,
     discord: {

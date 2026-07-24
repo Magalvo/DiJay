@@ -13,5 +13,6 @@ turning command handling, business rules, and third-party SDKs into one coupled 
 3. **WI-003 — Advanced playback:** volume, seek, loop, queue operations, and controls panel.
 4. **WI-004 — Shared playlists:** SQLite settings, shared playlists, and backups.
 5. **WI-005 — VPS deployment:** production containers, healthchecks, and operations.
+6. **WI-006 — Bot presence:** configurable activity and hardened Lavalink deployment.
 
 Every future item must define acceptance criteria and failing tests before implementation.

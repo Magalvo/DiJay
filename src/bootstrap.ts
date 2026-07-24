@@ -18,6 +18,7 @@ import { SqliteGuildSettingsRepository } from "./infrastructure/sqlite/sqlite-gu
 import { SqlitePlaylistRepository } from "./infrastructure/sqlite/sqlite-playlist-repository.js";
 import { CommandRegistry } from "./presentation/discord/command-registry.js";
 import { createDiscordCommands } from "./presentation/discord/commands.js";
+import { configureBotPresence } from "./presentation/discord/bot-presence.js";
 import { createMusicButtonHandlers } from "./presentation/discord/music-buttons.js";
 
 export async function startBot(config: AppConfig): Promise<void> {
@@ -81,6 +82,7 @@ export async function startBot(config: AppConfig): Promise<void> {
 
   client.once(Events.ClientReady, (readyClient) => {
     health.setDiscordReady(true);
+    configureBotPresence(readyClient.user, config.botStatusText);
     for (const guild of readyClient.guilds.cache.values()) {
       if (!accessPolicy.isAllowed(guild.id)) {
         void guild.leave().catch((error: unknown) => {

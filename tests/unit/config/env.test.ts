@@ -18,6 +18,7 @@ describe("parseEnv", () => {
         guildId: validEnv.DISCORD_GUILD_ID,
         token: validEnv.DISCORD_TOKEN,
       },
+      botStatusText: "música | /play",
       dataDir: "./data",
       defaultVolume: 80,
       healthPort: 3000,
@@ -30,6 +31,12 @@ describe("parseEnv", () => {
       },
       logLevel: "info",
       nodeEnv: "development",
+    });
+  });
+
+  it("accepts a custom bot activity text", () => {
+    expect(parseEnv({ ...validEnv, BOT_STATUS_TEXT: "pedidos com /play" })).toMatchObject({
+      botStatusText: "pedidos com /play",
     });
   });
 

@@ -22,6 +22,7 @@ Discord.js, Lavalink v4 e SQLite integrado no Node.js.
 Requisitos: Node.js 24.15+, npm 11 e Docker Compose.
 
 1. Copia `.env.example` para `.env` e preenche os valores reais.
+   `BOT_STATUS_TEXT` controla a atividade apresentada no perfil do bot.
 2. Arranca apenas o Lavalink, expondo-o localmente:
 
 ```bash

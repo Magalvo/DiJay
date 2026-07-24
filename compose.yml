@@ -6,9 +6,8 @@ services:
       LAVALINK_SERVER_PASSWORD: "${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in .env}"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
-      - lavalink-plugins:/opt/Lavalink/plugins
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2333/version >/dev/null"]
+      test: ["CMD", "nc", "-z", "127.0.0.1", "2333"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -66,4 +65,3 @@ networks:
 
 volumes:
   dijay-data:
-  lavalink-plugins:
