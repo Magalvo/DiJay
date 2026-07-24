@@ -8,6 +8,10 @@ import { VoskSpeechToText } from "./vosk-speech-to-text.js";
 
 const MAX_CAPTURE_MS = 6_000;
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Assembles the voice feature. Loaded dynamically from `bootstrap` only when voice is
  * enabled, so the native STT and audio packages stay optional.
@@ -33,23 +37,35 @@ export const createVoiceFeature: CreateVoiceFeature = ({ logger, modelPath, musi
       }
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      let transcript: string;
       try {
-        const transcript = await listener.capture({
+        transcript = await listener.capture({
           adapterCreator: interaction.guild.voiceAdapterCreator,
           channelId,
           guildId: request.guildId,
           maxDurationMs: MAX_CAPTURE_MS,
           userId: interaction.user.id,
         });
-        if (transcript.trim().length === 0) {
-          await interaction.editReply("🎙️ Não percebi nada. Tenta outra vez.");
-          return;
-        }
+      } catch (error) {
+        logger.error({ err: error, guildId: request.guildId }, "Voice capture failed");
+        await interaction.editReply(
+          `⚠️ Falha ao captar/transcrever a voz: ${describeError(error)}`,
+        );
+        return;
+      }
+
+      if (transcript.trim().length === 0) {
+        await interaction.editReply("🎙️ Não percebi nada. Tenta outra vez.");
+        return;
+      }
+
+      try {
         const outcome = await commands.handle(transcript, request);
         await interaction.editReply(`🎙️ "${transcript}"\n${outcome.message}`);
       } catch (error) {
-        logger.error({ error, guildId: request.guildId }, "Voice capture failed");
-        await interaction.editReply("Ocorreu um erro ao ouvir o comando de voz.");
+        logger.error({ err: error, guildId: request.guildId }, "Voice command failed");
+        await interaction.editReply(`🎙️ "${transcript}"\n⚠️ ${describeError(error)}`);
       }
     },
     dispose() {
