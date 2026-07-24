@@ -17,6 +17,10 @@ const DECIMATION = DISCORD_SAMPLE_RATE / TARGET_SAMPLE_RATE;
 const SILENCE_MS = 1_000;
 const READY_TIMEOUT_MS = 10_000;
 
+function noop(): void {
+  // Intentionally ignore stream teardown errors.
+}
+
 export interface VoiceCaptureRequest {
   readonly adapterCreator: DiscordGatewayAdapterCreator;
   readonly channelId: string;
@@ -52,7 +56,14 @@ export class DiscordVoiceListener {
         frameSize: 960,
         rate: DISCORD_SAMPLE_RATE,
       });
+      // Silence the abort/close errors that tearing the streams down raises; the capture
+      // is considered empty rather than failed when no one speaks.
+      opus.once("error", noop);
+      decoder.once("error", noop);
       const stereo = await collect(opus.pipe(decoder), request.maxDurationMs);
+      if (stereo.length === 0) {
+        return "";
+      }
       return await this.stt.transcribe(toMono16k(stereo), TARGET_SAMPLE_RATE);
     } finally {
       connection.destroy();

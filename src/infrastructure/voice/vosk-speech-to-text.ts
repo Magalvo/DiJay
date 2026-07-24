@@ -19,8 +19,13 @@ export class VoskSpeechToText implements SpeechToText {
     const recognizer = new Recognizer({ model: this.model, sampleRate });
     try {
       recognizer.acceptWaveform(pcm);
-      const [best] = recognizer.finalResult().alternatives;
-      return Promise.resolve(best?.text ?? "");
+      // Without setMaxAlternatives Vosk returns `{ text }`, not `{ alternatives }`, so read
+      // both shapes defensively instead of destructuring a possibly-undefined array.
+      const result = recognizer.finalResult() as unknown as {
+        alternatives?: { text?: string }[];
+        text?: string;
+      };
+      return Promise.resolve(result.text ?? result.alternatives?.[0]?.text ?? "");
     } finally {
       recognizer.free();
     }
