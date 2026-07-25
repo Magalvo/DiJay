@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseVoiceCommand, parseWakeCommand } from "../../../src/domain/voice/voice-command.js";
+import {
+  parseVoiceCommand,
+  parseWakeCommand,
+  voiceGrammar,
+} from "../../../src/domain/voice/voice-command.js";
 
 describe("parseVoiceCommand", () => {
   it("maps Portuguese control phrases to intents", () => {
@@ -78,5 +82,14 @@ describe("parseWakeCommand", () => {
   it("ignores the bare wake word with no command", () => {
     expect(parseWakeCommand("dj")).toEqual({ kind: "unknown" });
     expect(parseWakeCommand("DiJay")).toEqual({ kind: "unknown" });
+  });
+});
+
+describe("voiceGrammar", () => {
+  it("includes the wake word so hands-free mode can recognize it", () => {
+    // Without this, Vosk (constrained to the grammar) can never output the wake word and
+    // wake-word mode would match nothing.
+    expect(voiceGrammar("pt")).toContain("dj");
+    expect(voiceGrammar("en")).toContain("dj");
   });
 });
