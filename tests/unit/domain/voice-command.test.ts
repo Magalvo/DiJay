@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseVoiceCommand } from "../../../src/domain/voice/voice-command.js";
+import { parseVoiceCommand, parseWakeCommand } from "../../../src/domain/voice/voice-command.js";
 
 describe("parseVoiceCommand", () => {
   it("maps Portuguese control phrases to intents", () => {
@@ -60,5 +60,23 @@ describe("parseVoiceCommand", () => {
   it("does not understand the other language's words", () => {
     expect(parseVoiceCommand("pausa", "en")).toEqual({ kind: "unknown" });
     expect(parseVoiceCommand("pause", "pt")).toEqual({ kind: "unknown" });
+  });
+});
+
+describe("parseWakeCommand", () => {
+  it("acts only when the utterance begins with a wake word", () => {
+    expect(parseWakeCommand("dj salta")).toEqual({ kind: "skip" });
+    expect(parseWakeCommand("dj toca daft punk")).toEqual({ kind: "play", query: "daft punk" });
+    expect(parseWakeCommand("dj skip", "en")).toEqual({ kind: "skip" });
+  });
+
+  it("ignores speech without the wake word", () => {
+    expect(parseWakeCommand("salta")).toEqual({ kind: "unknown" });
+    expect(parseWakeCommand("skip", "en")).toEqual({ kind: "unknown" });
+  });
+
+  it("ignores the bare wake word with no command", () => {
+    expect(parseWakeCommand("dj")).toEqual({ kind: "unknown" });
+    expect(parseWakeCommand("DiJay")).toEqual({ kind: "unknown" });
   });
 });
