@@ -19,7 +19,7 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "eslint.config.js", "vitest.config.ts"],
-  // The optional voice infrastructure is validated separately via tsconfig.voice.json so
-  // the main pipeline never depends on the native voice/STT packages.
-  "exclude": ["src/infrastructure/voice/**"]
+  // The optional voice infrastructure and the listener sidecar are validated separately via
+  // tsconfig.voice.json so the main pipeline never depends on the native voice/STT packages.
+  "exclude": ["src/infrastructure/voice/**", "src/voice-listener/**"]
 }

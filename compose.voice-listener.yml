@@ -1,0 +1,36 @@
+# Overlay that runs the dedicated voice-listener sidecar (WI-013) next to the main bot.
+#
+#   docker compose -f compose.yml -f compose.voice-listener.yml up -d --build
+#
+# Requires a SECOND Discord application: set VOICE_BOT_TOKEN + VOICE_BOT_CLIENT_ID and a
+# shared VOICE_IPC_SECRET in .env. The main bot (lean image from compose.yml) starts its
+# internal IPC endpoint automatically once VOICE_IPC_SECRET is present. Nothing is published
+# off the private network; the listener reaches the main bot at http://bot:3100.
+#
+# Download the Vosk model to ./models first (see docs/canonical/operations.md).
+services:
+  voice-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.voice
+    command: ["node", "dist/voice-listener/main.js"]
+    restart: unless-stopped
+    env_file:
+      - ${DIJAY_ENV_FILE:-.env}
+    environment:
+      NODE_ENV: production
+      VOICE_IPC_URL: http://bot:3100
+      VOICE_STT_MODEL_PATH: /app/models/vosk-model-small-pt-0.3
+    depends_on:
+      bot:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models:ro
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - dijay-private

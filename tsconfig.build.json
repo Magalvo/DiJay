@@ -8,5 +8,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["tests", "src/infrastructure/voice/**"]
+  "exclude": ["tests", "src/infrastructure/voice/**", "src/voice-listener/**"]
 }
