@@ -19,7 +19,9 @@ export function createMusicButtonHandlers(
         await interaction.deferUpdate();
         const state = await music.getState(guildId);
         await interaction.editReply(buildControlPanel(state));
-        livePanel.register(guildId, interaction.channelId, interaction.message.id);
+        if (livePanel.isCurrent(guildId, interaction.channelId, interaction.message.id)) {
+          livePanel.register(guildId, interaction.channelId, interaction.message.id);
+        }
         return;
       }
 
@@ -48,8 +50,11 @@ export function createMusicButtonHandlers(
 
       const state = await music.getState(request.guildId);
       await interaction.editReply(buildControlPanel(state));
-      // The panel the user just interacted with becomes the live one for this guild.
-      livePanel.register(request.guildId, interaction.channelId, interaction.message.id);
+      // The panel the user just interacted with becomes the live one for this guild, unless a
+      // newer panel already holds that role — clicking a stale panel must not steal it back.
+      if (livePanel.isCurrent(request.guildId, interaction.channelId, interaction.message.id)) {
+        livePanel.register(request.guildId, interaction.channelId, interaction.message.id);
+      }
     },
   }));
 }
