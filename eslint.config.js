@@ -10,6 +10,7 @@ export default tseslint.config(
       "node_modules/**",
       // Optional feature; type-checked on demand via `npm run typecheck:voice`.
       "src/infrastructure/voice/**",
+      "src/voice-listener/**",
     ],
   },
   eslint.configs.recommended,

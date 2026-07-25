@@ -56,6 +56,32 @@ describe("parseEnv", () => {
     ).toMatchObject({ spotify: { configured: true } });
   });
 
+  it("exposes voice IPC and second-bot config, disabled without a shared secret", () => {
+    expect(parseEnv(validEnv)).toMatchObject({
+      voiceIpc: { enabled: false, port: 3100, secret: "", url: "http://bot:3100" },
+      voiceBot: { clientId: "", token: "" },
+    });
+
+    const configured = parseEnv({
+      ...validEnv,
+      VOICE_IPC_SECRET: "a-very-long-shared-secret",
+      VOICE_IPC_PORT: "3200",
+      VOICE_IPC_URL: "http://main:3200",
+      VOICE_BOT_TOKEN: "second-bot-token",
+      VOICE_BOT_CLIENT_ID: "123456789012345680",
+    });
+    expect(configured).toMatchObject({
+      voiceIpc: { enabled: true, port: 3200, url: "http://main:3200" },
+      voiceBot: { clientId: "123456789012345680", token: "second-bot-token" },
+    });
+  });
+
+  it("rejects a voice IPC secret that is too short", () => {
+    expect(() => parseEnv({ ...validEnv, VOICE_IPC_SECRET: "short" })).toThrowError(
+      /VOICE_IPC_SECRET/,
+    );
+  });
+
   it("accepts a custom bot activity text", () => {
     expect(parseEnv({ ...validEnv, BOT_STATUS_TEXT: "pedidos com /play" })).toMatchObject({
       botStatusText: "pedidos com /play",

@@ -24,7 +24,20 @@ const environmentSchema = z.object({
   // them to know whether Spotify is usable and to report it at startup.
   SPOTIFY_CLIENT_ID: z.string().trim().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().trim().default(""),
+  // Second Discord app used only by the voice-listener sidecar (WI-013).
+  VOICE_BOT_CLIENT_ID: z.string().trim().default(""),
+  VOICE_BOT_TOKEN: z.string().trim().default(""),
   VOICE_ENABLED: booleanFromString,
+  // Internal IPC between the listener and the main bot, on the private network only.
+  VOICE_IPC_PORT: z.coerce.number().int().positive().max(65_535).default(3_100),
+  VOICE_IPC_SECRET: z
+    .string()
+    .trim()
+    .default("")
+    .refine((value) => value.length === 0 || value.length >= 16, {
+      message: "VOICE_IPC_SECRET must be at least 16 characters when set",
+    }),
+  VOICE_IPC_URL: z.string().trim().default("http://bot:3100"),
   VOICE_STT_MODEL_PATH: z.string().min(1).default("./models/vosk"),
 });
 
@@ -53,6 +66,16 @@ export interface AppConfig {
   readonly voice: {
     readonly enabled: boolean;
     readonly modelPath: string;
+  };
+  readonly voiceBot: {
+    readonly clientId: string;
+    readonly token: string;
+  };
+  readonly voiceIpc: {
+    readonly enabled: boolean;
+    readonly port: number;
+    readonly secret: string;
+    readonly url: string;
   };
 }
 
@@ -90,6 +113,16 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     voice: {
       enabled: result.data.VOICE_ENABLED,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
+    },
+    voiceBot: {
+      clientId: result.data.VOICE_BOT_CLIENT_ID,
+      token: result.data.VOICE_BOT_TOKEN,
+    },
+    voiceIpc: {
+      enabled: result.data.VOICE_IPC_SECRET.length > 0,
+      port: result.data.VOICE_IPC_PORT,
+      secret: result.data.VOICE_IPC_SECRET,
+      url: result.data.VOICE_IPC_URL,
     },
   };
 }

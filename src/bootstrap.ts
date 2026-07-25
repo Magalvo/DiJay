@@ -9,9 +9,14 @@ import { MusicService } from "./application/music/music-service.js";
 import { PlaylistService } from "./application/playlists/playlist-service.js";
 import { GuildAccessPolicy } from "./application/security/guild-access-policy.js";
 import { GuildSettingsService } from "./application/settings/guild-settings-service.js";
+import { VoiceCommandService } from "./application/voice/voice-command-service.js";
 import type { AppConfig } from "./config/env.js";
 import { HealthState } from "./infrastructure/health/health-state.js";
 import { startHealthServer } from "./infrastructure/health/health-server.js";
+import {
+  startVoiceCommandServer,
+  type VoiceCommandServer,
+} from "./infrastructure/ipc/voice-command-server.js";
 import { PoruMusicGateway } from "./infrastructure/lavalink/poru-music-gateway.js";
 import { openAppDatabase } from "./infrastructure/sqlite/database.js";
 import { SqliteGuildSettingsRepository } from "./infrastructure/sqlite/sqlite-guild-settings-repository.js";
@@ -111,6 +116,36 @@ export async function startBot(config: AppConfig): Promise<void> {
   }
 
   const voice = voiceFeature;
+
+  // Authenticated IPC endpoint that the voice-listener sidecar (WI-013) calls with a
+  // recognized transcript. Enabled only when a shared secret is set; bound to the private
+  // network, never published.
+  let voiceCommandServer: VoiceCommandServer | undefined;
+  if (config.voiceIpc.enabled) {
+    const voiceCommands = new VoiceCommandService(music);
+    try {
+      voiceCommandServer = await startVoiceCommandServer(
+        config.voiceIpc.port,
+        {
+          secret: config.voiceIpc.secret,
+          handle: (transcript, request) => voiceCommands.handle(transcript, request),
+          isAllowed: (guildId) => accessPolicy.isAllowed(guildId),
+          resolveRequest: (guildId, userId, textChannelId) => {
+            const voiceChannelId =
+              client.guilds.cache.get(guildId)?.members.cache.get(userId)?.voice.channelId ?? null;
+            return voiceChannelId === null
+              ? null
+              : { guildId, requesterId: userId, textChannelId, voiceChannelId };
+          },
+        },
+        logger,
+      );
+      logger.info({ port: config.voiceIpc.port }, "Voice command IPC server listening");
+    } catch (error) {
+      logger.error({ err: error }, "Voice command IPC server could not start");
+    }
+  }
+
   const registry = new CommandRegistry(
     createDiscordCommands(
       music,
@@ -250,6 +285,9 @@ export async function startBot(config: AppConfig): Promise<void> {
     health.setLavalinkReady(false);
     health.setDiscordReady(false);
     await client.destroy();
+    if (voiceCommandServer !== undefined) {
+      await voiceCommandServer.close();
+    }
     await healthServer.close();
     database.close();
   };
@@ -265,6 +303,9 @@ export async function startBot(config: AppConfig): Promise<void> {
   } catch (error) {
     health.beginShutdown();
     await client.destroy();
+    if (voiceCommandServer !== undefined) {
+      await voiceCommandServer.close();
+    }
     await healthServer.close();
     database.close();
     throw error;
