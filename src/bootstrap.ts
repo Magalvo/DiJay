@@ -33,6 +33,12 @@ export async function startBot(config: AppConfig): Promise<void> {
         })
       : undefined,
   );
+  logger.info(
+    { spotify: config.spotify.configured },
+    config.spotify.configured
+      ? "Spotify links enabled (resolved via Lavalink/LavaSrc)"
+      : "Spotify not configured; Spotify links will not resolve",
+  );
   const health = new HealthState();
   const database = openAppDatabase(join(config.dataDir, "dijay.sqlite"));
   let healthServer;

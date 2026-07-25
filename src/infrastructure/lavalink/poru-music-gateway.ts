@@ -5,6 +5,7 @@ import type {
   MusicGateway,
   PlaybackRequest,
   PlayRequest,
+  TrackSelection,
 } from "../../application/music/music-gateway.js";
 import type { GuildSettingsRepository } from "../../application/settings/guild-settings-repository.js";
 import { MusicError } from "../../domain/music/music-error.js";
@@ -18,12 +19,7 @@ export class PoruMusicGateway implements MusicGateway {
 
   public async enqueue(request: PlayRequest): Promise<EnqueueResult> {
     const response = await this.resolveWithPoru(request.query, request.requesterId);
-    if (response.loadType === "empty" || response.loadType === "error") {
-      return this.emptyResult();
-    }
-
-    const resolvedTracks =
-      response.loadType === "playlist" ? response.tracks : response.tracks.slice(0, 1);
+    const { tracks: resolvedTracks, playlistName } = this.selectFromResponse(response);
     if (resolvedTracks.length === 0) {
       return this.emptyResult();
     }
@@ -70,7 +66,7 @@ export class PoruMusicGateway implements MusicGateway {
 
     return {
       added: resolvedTracks.map((track) => this.toDomainTrack(track)),
-      playlistName: response.playlistInfo.type === "playlist" ? response.playlistInfo.name : null,
+      playlistName,
       queueSize: player.queue.size + (player.currentTrack === null ? 0 : 1),
       startedPlaying: created || startedPlaying,
     };
@@ -82,6 +78,30 @@ export class PoruMusicGateway implements MusicGateway {
       return [];
     }
     return response.tracks.map((track) => this.toDomainTrack(track));
+  }
+
+  public async resolveSelection(query: string, requesterId: string): Promise<TrackSelection> {
+    const response = await this.resolveWithPoru(query, requesterId);
+    const { tracks, playlistName } = this.selectFromResponse(response);
+    return { playlistName, tracks: tracks.map((track) => this.toDomainTrack(track)) };
+  }
+
+  /**
+   * Picks the tracks a query should contribute: every track for a resolved playlist/album,
+   * only the top hit for a plain search or single track, and nothing for empty/error loads.
+   * Shared by `enqueue` and `resolveSelection` so playback and playlist import agree.
+   */
+  private selectFromResponse(response: Response): {
+    playlistName: string | null;
+    tracks: readonly PoruTrack[];
+  } {
+    if (response.loadType === "empty" || response.loadType === "error") {
+      return { playlistName: null, tracks: [] };
+    }
+    return {
+      playlistName: response.playlistInfo.type === "playlist" ? response.playlistInfo.name : null,
+      tracks: response.loadType === "playlist" ? response.tracks : response.tracks.slice(0, 1),
+    };
   }
 
   public getState(guildId: string): Promise<PlaybackStateSnapshot | null> {

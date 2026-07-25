@@ -16,3 +16,8 @@ export interface PlaylistPlaybackResult {
   readonly added: number;
   readonly failed: number;
 }
+
+export interface PlaylistImportResult {
+  readonly added: readonly PlaylistTrack[];
+  readonly skipped: number;
+}

@@ -24,6 +24,11 @@ export interface EnqueueResult {
   readonly startedPlaying: boolean;
 }
 
+export interface TrackSelection {
+  readonly playlistName: string | null;
+  readonly tracks: readonly Track[];
+}
+
 export interface MusicGateway {
   clear(request: PlaybackRequest): Promise<number | null>;
   enqueue(request: PlayRequest): Promise<EnqueueResult>;
@@ -31,6 +36,7 @@ export interface MusicGateway {
   pause(request: PlaybackRequest): Promise<boolean>;
   remove(request: PlaybackRequest & { readonly position: number }): Promise<Track | null>;
   resolve(query: string, requesterId: string): Promise<readonly Track[]>;
+  resolveSelection(query: string, requesterId: string): Promise<TrackSelection>;
   resume(request: PlaybackRequest): Promise<boolean>;
   seek(request: PlaybackRequest & { readonly positionMs: number }): Promise<boolean>;
   setLoop(request: PlaybackRequest & { readonly mode: LoopMode }): Promise<boolean>;

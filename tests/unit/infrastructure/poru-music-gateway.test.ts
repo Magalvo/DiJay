@@ -60,6 +60,53 @@ describe("PoruMusicGateway", () => {
     });
   });
 
+  it("selects every track of a resolved playlist for import", async () => {
+    const poru = {
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "playlist",
+        playlistInfo: { name: "Spotify Mix", type: "playlist" },
+        tracks: [poruTrack("One"), poruTrack("Two"), poruTrack("Three")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const selection = await gateway.resolveSelection(
+      "https://open.spotify.com/playlist/x",
+      "user-1",
+    );
+
+    expect(selection.tracks.map((track) => track.title)).toEqual(["One", "Two", "Three"]);
+    expect(selection.playlistName).toBe("Spotify Mix");
+  });
+
+  it("selects only the top result for a plain search or single track", async () => {
+    const poru = {
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "search",
+        playlistInfo: {},
+        tracks: [poruTrack("Best"), poruTrack("Other")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const selection = await gateway.resolveSelection("daft punk", "user-1");
+
+    expect(selection.tracks.map((track) => track.title)).toEqual(["Best"]);
+    expect(selection.playlistName).toBeNull();
+  });
+
+  it("returns an empty selection when nothing loads", async () => {
+    const poru = {
+      resolve: vi.fn().mockResolvedValue({ loadType: "empty", playlistInfo: {}, tracks: [] }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const selection = await gateway.resolveSelection("https://open.spotify.com/track/x", "user-1");
+
+    expect(selection.tracks).toEqual([]);
+    expect(selection.playlistName).toBeNull();
+  });
+
   it("blocks controls from a different voice channel", async () => {
     const poru = {
       get: vi.fn().mockReturnValue({

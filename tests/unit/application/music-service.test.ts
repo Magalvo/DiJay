@@ -29,6 +29,7 @@ function createGateway(result?: Partial<EnqueueResult>): MusicGateway {
     pause: vi.fn().mockResolvedValue(false),
     remove: vi.fn().mockResolvedValue(null),
     resolve: vi.fn().mockResolvedValue([]),
+    resolveSelection: vi.fn().mockResolvedValue({ playlistName: null, tracks: [] }),
     resume: vi.fn().mockResolvedValue(false),
     seek: vi.fn().mockResolvedValue(false),
     setLoop: vi.fn().mockResolvedValue(false),

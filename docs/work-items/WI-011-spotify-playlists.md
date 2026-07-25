@@ -10,16 +10,21 @@ links. Spotify credentials are required and configured out of band.
 
 ## Acceptance Criteria
 
-- [ ] LavaSrc is enabled in the Lavalink image with Spotify client credentials supplied via
+- [x] LavaSrc is enabled in the Lavalink image with Spotify client credentials supplied via
       environment variables (no secrets committed).
-- [ ] `/play` accepts Spotify track, album, and playlist URLs and enqueues the resolved
-      tracks with correct requester attribution.
-- [ ] Spotify playlists can be saved into the existing SQLite shared-playlist storage.
-- [ ] Region-locked or unresolvable tracks are skipped and reported, never fatal.
-- [ ] Missing or invalid Spotify configuration degrades gracefully to non-Spotify sources
-      and is logged at startup.
-- [ ] Source licensing is respected: no attempt to stream Spotify audio directly.
-- [ ] Red/Green/Refactor and all quality gates are recorded.
+- [x] `/play` accepts Spotify track, album, and playlist URLs and enqueues the resolved
+      tracks with correct requester attribution. (Poru forwards URLs verbatim to LavaSrc; the
+      gateway enqueues every track of a `playlist` load.)
+- [x] Spotify playlists can be saved into the existing SQLite shared-playlist storage.
+      (`/playlist add <url>` now imports the whole album/playlist via `addTracks`.)
+- [x] Region-locked or unresolvable tracks are skipped and reported, never fatal.
+      (LavaSrc omits unplayable tracks server-side; imports past the 100-track cap are
+      skipped and the count is reported to the user.)
+- [x] Missing or invalid Spotify configuration degrades gracefully to non-Spotify sources
+      and is logged at startup. (`config.spotify.configured` is logged on boot.)
+- [x] Source licensing is respected: no attempt to stream Spotify audio directly.
+      (LavaSrc mirrors audio through `ytsearch`; the `spotify` source is metadata-only.)
+- [x] Red/Green/Refactor and all quality gates are recorded.
 
 ## Open Decisions
 

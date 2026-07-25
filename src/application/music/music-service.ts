@@ -5,7 +5,13 @@ import type {
   QueueSnapshot,
   Track,
 } from "../../domain/music/track.js";
-import type { EnqueueResult, MusicGateway, PlaybackRequest, PlayRequest } from "./music-gateway.js";
+import type {
+  EnqueueResult,
+  MusicGateway,
+  PlaybackRequest,
+  PlayRequest,
+  TrackSelection,
+} from "./music-gateway.js";
 
 const MAX_QUERY_LENGTH = 500;
 
@@ -30,6 +36,15 @@ export class MusicService {
       throw new MusicError("TRACK_NOT_FOUND", "No tracks matched the query.");
     }
     return tracks;
+  }
+
+  /**
+   * Resolves a query into the tracks it should contribute to a playlist: every track of a
+   * playlist/album URL, or just the top hit for a plain search. Unlike `resolve`, an empty
+   * result is returned rather than thrown, so callers can report it in their own words.
+   */
+  public resolveSelection(query: string, requesterId: string): Promise<TrackSelection> {
+    return this.gateway.resolveSelection(this.validQuery(query), requesterId);
   }
 
   public getState(guildId: string): Promise<PlaybackStateSnapshot | null> {

@@ -73,6 +73,45 @@ describe("SQLite repositories", () => {
     ]);
   });
 
+  it("imports many tracks at once and reports the overflow past the 100 limit", async () => {
+    const repository = new SqlitePlaylistRepository(database);
+    await repository.create("guild-1", "Import", "user-1");
+    const tracks = Array.from({ length: 102 }, (_, index) => ({
+      author: "Artist",
+      durationMs: 180_000,
+      isStream: false,
+      title: `Track ${index + 1}`,
+      uri: `https://example.test/${index + 1}`,
+    }));
+
+    const result = await repository.addTracks("guild-1", "Import", tracks);
+
+    expect(result.added).toHaveLength(100);
+    expect(result.skipped).toBe(2);
+    expect(result.added[0]).toMatchObject({ position: 1 });
+    expect(result.added[99]).toMatchObject({ position: 100 });
+
+    const playlist = await repository.getByName("guild-1", "Import");
+    expect(playlist?.tracks).toHaveLength(100);
+  });
+
+  it("appends imported tracks after existing ones", async () => {
+    const repository = new SqlitePlaylistRepository(database);
+    await repository.create("guild-1", "Mix", "user-1");
+    await repository.addTrack("guild-1", "Mix", {
+      author: "Artist",
+      durationMs: 1_000,
+      isStream: false,
+      title: "Existing",
+      uri: "https://example.test/existing",
+    });
+
+    const newTrack = { author: "A", durationMs: 1_000, isStream: false, title: "New", uri: null };
+    const result = await repository.addTracks("guild-1", "Mix", [newTrack]);
+
+    expect(result).toEqual({ added: [{ position: 2, track: newTrack }], skipped: 0 });
+  });
+
   it("enforces the 100-track playlist limit", async () => {
     const repository = new SqlitePlaylistRepository(database);
     await repository.create("guild-1", "Maximum", "user-1");

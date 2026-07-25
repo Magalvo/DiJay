@@ -21,6 +21,7 @@ function gateway(overrides: Record<string, unknown> = {}): MusicGateway {
     pause: vi.fn(),
     remove: vi.fn().mockResolvedValue(null),
     resolve: vi.fn(),
+    resolveSelection: vi.fn().mockResolvedValue({ playlistName: null, tracks: [] }),
     resume: vi.fn(),
     seek: vi.fn().mockResolvedValue(false),
     setLoop: vi.fn().mockResolvedValue(false),
