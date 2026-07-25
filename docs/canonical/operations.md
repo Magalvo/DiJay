@@ -33,6 +33,23 @@ bot.
 Leaving the credentials empty keeps every other source working; Spotify links simply fail
 to resolve.
 
+## Troubleshooting: YouTube playback breaks
+
+If `/play` finds results (autocomplete works) but tracks fail to load — the bot replies "Não
+encontrei nenhuma faixa" and the Lavalink logs show
+`ScriptExtractionException: Must find sig function` — YouTube changed its player script and the
+`youtube-plugin` is outdated. This is recurring maintenance, not a bot bug.
+
+1. Bump `dev.lavalink.youtube:youtube-plugin` in `lavalink/application.yml` to the latest
+   release (see <https://github.com/lavalink-devs/youtube-source/releases>).
+2. Recreate Lavalink so it downloads the new plugin (the file is volume-mounted, no image
+   rebuild needed):
+
+   `docker compose up -d --force-recreate lavalink`
+
+If a version bump alone stops working, YouTube may require OAuth/poToken; configure it per the
+plugin's README.
+
 ## Voice recognition — in-process (legacy)
 
 > The **voice-listener sidecar** below is the recommended way to run voice. It does not
