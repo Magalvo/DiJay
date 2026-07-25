@@ -218,6 +218,12 @@ async function main(): Promise<void> {
           // utterances that do not begin with the wake word.
           if (result.transcript.trim().length > 0) {
             logger.info({ transcript: result.transcript }, "Wake listener heard");
+            // TEMP (WI-015 calibration): the small PT Vosk model has no "gelado" in its
+            // vocabulary, so neither the grammar nor open vocab can output it. Log the
+            // open-vocab transcription to learn which in-vocabulary token(s) the model produces
+            // for a spoken "gelado", so the trigger can be mapped to those. Remove once
+            // calibrated.
+            logger.info({ open: await result.transcribeOpen() }, "Open-vocab transcript (diag)");
           }
           // Soundboard triggers (WI-015) are self-contained: hearing the word fires the sound
           // with no wake word, handled locally so it overlays the music via Discord's native
