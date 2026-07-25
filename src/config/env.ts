@@ -20,6 +20,10 @@ const environmentSchema = z.object({
   LAVALINK_SECURE: booleanFromString,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Consumed by the Lavalink/LavaSrc container to resolve Spotify links; the bot only reads
+  // them to know whether Spotify is usable and to report it at startup.
+  SPOTIFY_CLIENT_ID: z.string().trim().default(""),
+  SPOTIFY_CLIENT_SECRET: z.string().trim().default(""),
   VOICE_ENABLED: booleanFromString,
   VOICE_STT_MODEL_PATH: z.string().min(1).default("./models/vosk"),
 });
@@ -43,6 +47,9 @@ export interface AppConfig {
   };
   readonly logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
   readonly nodeEnv: "development" | "test" | "production";
+  readonly spotify: {
+    readonly configured: boolean;
+  };
   readonly voice: {
     readonly enabled: boolean;
     readonly modelPath: string;
@@ -76,6 +83,10 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     logLevel: result.data.LOG_LEVEL,
     nodeEnv: result.data.NODE_ENV,
+    spotify: {
+      configured:
+        result.data.SPOTIFY_CLIENT_ID.length > 0 && result.data.SPOTIFY_CLIENT_SECRET.length > 0,
+    },
     voice: {
       enabled: result.data.VOICE_ENABLED,
       modelPath: result.data.VOICE_STT_MODEL_PATH,

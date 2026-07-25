@@ -3,8 +3,14 @@ import type { DatabaseSync } from "node:sqlite";
 import type { PlaylistRepository } from "../../application/playlists/playlist-repository.js";
 import { MusicError } from "../../domain/music/music-error.js";
 import type { Track } from "../../domain/music/track.js";
-import type { Playlist, PlaylistTrack } from "../../domain/playlists/playlist.js";
+import type {
+  Playlist,
+  PlaylistImportResult,
+  PlaylistTrack,
+} from "../../domain/playlists/playlist.js";
 import { withTransaction } from "./database.js";
+
+const MAX_PLAYLIST_TRACKS = 100;
 
 interface PlaylistRow {
   created_by: string;
@@ -75,7 +81,7 @@ export class SqlitePlaylistRepository implements PlaylistRepository {
         const countRow = this.database
           .prepare("SELECT COUNT(*) AS count FROM playlist_tracks WHERE playlist_id = ?")
           .get(playlist.id) as unknown as { count: number };
-        if (countRow.count >= 100) {
+        if (countRow.count >= MAX_PLAYLIST_TRACKS) {
           throw new MusicError("PLAYLIST_FULL", "A playlist can contain at most 100 tracks.");
         }
         const position = countRow.count + 1;
@@ -95,6 +101,48 @@ export class SqlitePlaylistRepository implements PlaylistRepository {
             track.isStream ? 1 : 0,
           );
         return { position, track };
+      });
+    });
+  }
+
+  public addTracks(
+    guildId: string,
+    name: string,
+    tracks: readonly Track[],
+  ): Promise<PlaylistImportResult> {
+    return Promise.resolve().then(() => {
+      const playlist = this.findRow(guildId, name);
+      if (playlist === undefined) {
+        throw new MusicError("PLAYLIST_NOT_FOUND", "Playlist not found.");
+      }
+      return withTransaction(this.database, () => {
+        const countRow = this.database
+          .prepare("SELECT COUNT(*) AS count FROM playlist_tracks WHERE playlist_id = ?")
+          .get(playlist.id) as unknown as { count: number };
+        const insert = this.database.prepare(
+          `INSERT INTO playlist_tracks(
+             playlist_id, position, title, author, source_uri, duration_ms, is_stream
+           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        );
+        const capacity = MAX_PLAYLIST_TRACKS - countRow.count;
+        const added: PlaylistTrack[] = [];
+        for (const track of tracks) {
+          if (added.length >= capacity) {
+            break;
+          }
+          const position = countRow.count + added.length + 1;
+          insert.run(
+            playlist.id,
+            position,
+            track.title,
+            track.author,
+            track.uri,
+            track.durationMs,
+            track.isStream ? 1 : 0,
+          );
+          added.push({ position, track });
+        }
+        return { added, skipped: tracks.length - added.length };
       });
     });
   }

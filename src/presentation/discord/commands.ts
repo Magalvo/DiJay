@@ -291,13 +291,20 @@ async function executePlaylist(
     return;
   }
   if (subcommand === "add") {
-    const item = await playlists.add(
+    await interaction.deferReply();
+    const result = await playlists.add(
       guildId,
       name!,
       interaction.options.getString("query", true),
       interaction.user.id,
     );
-    await interaction.reply(`➕ Adicionada em ${item.position}: ${formatTrack(item.track)}`);
+    const first = result.added[0]!;
+    const overflow = result.skipped > 0 ? ` (${result.skipped} ignoradas — limite de 100)` : "";
+    await interaction.editReply(
+      result.added.length === 1
+        ? `➕ Adicionada em ${first.position}: ${formatTrack(first.track)}`
+        : `➕ ${result.added.length} faixas importadas para **${name!}**${overflow}`,
+    );
     return;
   }
   if (subcommand === "remove") {

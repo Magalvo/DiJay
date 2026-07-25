@@ -3,6 +3,7 @@ import type { MusicService } from "../music/music-service.js";
 import { MusicError } from "../../domain/music/music-error.js";
 import type {
   Playlist,
+  PlaylistImportResult,
   PlaylistPlaybackResult,
   PlaylistTrack,
 } from "../../domain/playlists/playlist.js";
@@ -47,10 +48,13 @@ export class PlaylistService {
     name: string,
     query: string,
     requesterId: string,
-  ): Promise<PlaylistTrack> {
+  ): Promise<PlaylistImportResult> {
     await this.get(guildId, name);
-    const tracks = await this.music.resolve(query, requesterId);
-    return this.repository.addTrack(guildId, this.validName(name), tracks[0]!);
+    const selection = await this.music.resolveSelection(query, requesterId);
+    if (selection.tracks.length === 0) {
+      throw new MusicError("TRACK_NOT_FOUND", "No tracks matched the query.");
+    }
+    return this.repository.addTracks(guildId, this.validName(name), selection.tracks);
   }
 
   public async remove(guildId: string, name: string, position: number): Promise<PlaylistTrack> {

@@ -43,6 +43,19 @@ describe("parseEnv", () => {
     ).toMatchObject({ voice: { enabled: true, modelPath: "/opt/vosk-pt" } });
   });
 
+  it("treats Spotify as unconfigured unless both credentials are present", () => {
+    expect(parseEnv(validEnv)).toMatchObject({ spotify: { configured: false } });
+    expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id-only" })).toMatchObject({
+      spotify: { configured: false },
+    });
+    expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_SECRET: "secret-only" })).toMatchObject({
+      spotify: { configured: false },
+    });
+    expect(
+      parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id", SPOTIFY_CLIENT_SECRET: "secret" }),
+    ).toMatchObject({ spotify: { configured: true } });
+  });
+
   it("accepts a custom bot activity text", () => {
     expect(parseEnv({ ...validEnv, BOT_STATUS_TEXT: "pedidos com /play" })).toMatchObject({
       botStatusText: "pedidos com /play",
