@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   extractPlayQuery,
+  matchSoundboardTrigger,
   parseVoiceCommand,
   parseWakeCommand,
   voiceGrammar,
@@ -92,6 +93,29 @@ describe("voiceGrammar", () => {
     // wake-word mode would match nothing.
     expect(voiceGrammar("pt")).toContain("dj");
     expect(voiceGrammar("en")).toContain("dj");
+  });
+
+  it("includes the soundboard trigger so Vosk can recognize it", () => {
+    // Same reason as the wake word: a word absent from the constrained grammar can never be
+    // transcribed, so the soundboard trigger would never fire.
+    expect(voiceGrammar("pt")).toContain("gelado");
+    expect(voiceGrammar("en")).toContain("gelado");
+  });
+});
+
+describe("matchSoundboardTrigger", () => {
+  it("returns the sound key when the trigger word is heard, with no wake word", () => {
+    expect(matchSoundboardTrigger("gelado")).toBe("gelado");
+    expect(matchSoundboardTrigger("quero um GELADO agora")).toBe("gelado");
+  });
+
+  it("returns null when no trigger word is present", () => {
+    expect(matchSoundboardTrigger("dj salta")).toBeNull();
+    expect(matchSoundboardTrigger("")).toBeNull();
+  });
+
+  it("matches on whole tokens, not substrings", () => {
+    expect(matchSoundboardTrigger("congelado")).toBeNull();
   });
 });
 

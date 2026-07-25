@@ -58,6 +58,32 @@ describe("parseEnv", () => {
     });
   });
 
+  it("parses soundboard trigger mappings, empty by default", () => {
+    expect(parseEnv(validEnv)).toMatchObject({ voice: { soundboardSounds: {} } });
+    expect(
+      parseEnv({ ...validEnv, VOICE_SOUNDBOARD_SOUNDS: "gelado:123456789012345678" }),
+    ).toMatchObject({ voice: { soundboardSounds: { gelado: "123456789012345678" } } });
+    expect(
+      parseEnv({
+        ...validEnv,
+        VOICE_SOUNDBOARD_SOUNDS: " GELADO : 123456789012345678 , outro:123456789012345679 ",
+      }),
+    ).toMatchObject({
+      voice: {
+        soundboardSounds: { gelado: "123456789012345678", outro: "123456789012345679" },
+      },
+    });
+  });
+
+  it("rejects a malformed soundboard mapping", () => {
+    expect(() =>
+      parseEnv({ ...validEnv, VOICE_SOUNDBOARD_SOUNDS: "gelado:not-a-snowflake" }),
+    ).toThrowError(/VOICE_SOUNDBOARD_SOUNDS/);
+    expect(() => parseEnv({ ...validEnv, VOICE_SOUNDBOARD_SOUNDS: "missing-id" })).toThrowError(
+      /VOICE_SOUNDBOARD_SOUNDS/,
+    );
+  });
+
   it("treats Spotify as unconfigured unless both credentials are present", () => {
     expect(parseEnv(validEnv)).toMatchObject({ spotify: { configured: false } });
     expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id-only" })).toMatchObject({
