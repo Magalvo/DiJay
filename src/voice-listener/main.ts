@@ -20,9 +20,13 @@ import {
 import pino from "pino";
 
 import { parseEnv } from "../config/env.js";
-import { parseWakeCommand, voiceGrammar } from "../domain/voice/voice-command.js";
+import { voiceGrammar } from "../domain/voice/voice-command.js";
 import { forwardVoiceCommand } from "../infrastructure/ipc/voice-command-client.js";
-import { DiscordVoiceListener } from "../infrastructure/voice/discord-voice-listener.js";
+import {
+  type CaptureResult,
+  DiscordVoiceListener,
+} from "../infrastructure/voice/discord-voice-listener.js";
+import { resolveTranscript } from "../infrastructure/voice/resolve-transcript.js";
 import { VoskSpeechToText } from "../infrastructure/voice/vosk-speech-to-text.js";
 
 const MAX_CAPTURE_MS = 6_000;
@@ -108,9 +112,9 @@ async function main(): Promise<void> {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    let transcript: string;
+    let result: CaptureResult;
     try {
-      transcript = await listener.capture({
+      result = await listener.capture({
         adapterCreator: interaction.guild.voiceAdapterCreator,
         channelId,
         guildId: interaction.guildId,
@@ -123,8 +127,14 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (transcript.trim().length === 0) {
+    if (result.transcript.trim().length === 0) {
       await interaction.editReply("🎙️ Não percebi nada. Tenta outra vez.");
+      return;
+    }
+
+    const transcript = await resolveTranscript(result, config.voice.language, false);
+    if (transcript === null) {
+      await interaction.editReply(`🎙️ "${result.transcript}"\n🤷 Não percebi o comando.`);
       return;
     }
 
@@ -184,14 +194,15 @@ async function main(): Promise<void> {
       busy.add(userId);
       void listener
         .captureUtterance(receiver, userId, MAX_CAPTURE_MS)
-        .then(async (transcript) => {
+        .then(async (result) => {
           cooldownUntil.set(userId, Date.now() + WAKE_COOLDOWN_MS);
           // Surface what Vosk heard so the wake word and commands can be calibrated; drop
           // utterances that do not begin with the wake word.
-          if (transcript.trim().length > 0) {
-            logger.info({ transcript }, "Wake listener heard");
+          if (result.transcript.trim().length > 0) {
+            logger.info({ transcript: result.transcript }, "Wake listener heard");
           }
-          if (parseWakeCommand(transcript, config.voice.language).kind === "unknown") {
+          const transcript = await resolveTranscript(result, config.voice.language, true);
+          if (transcript === null) {
             return;
           }
           const outcome = await forwardVoiceCommand(

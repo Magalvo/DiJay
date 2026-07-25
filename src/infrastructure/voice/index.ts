@@ -5,7 +5,8 @@ import { voiceGrammar } from "../../domain/voice/voice-command.js";
 import { playbackRequestFromInteraction } from "../../presentation/discord/interaction-context.js";
 import { userFacingMusicError } from "../../presentation/discord/user-messages.js";
 import type { CreateVoiceFeature } from "../../presentation/discord/voice-feature.js";
-import { DiscordVoiceListener } from "./discord-voice-listener.js";
+import { type CaptureResult, DiscordVoiceListener } from "./discord-voice-listener.js";
+import { resolveTranscript } from "./resolve-transcript.js";
 import { VoskSpeechToText } from "./vosk-speech-to-text.js";
 
 const MAX_CAPTURE_MS = 6_000;
@@ -36,9 +37,9 @@ export const createVoiceFeature: CreateVoiceFeature = ({ language, logger, model
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      let transcript: string;
+      let result: CaptureResult;
       try {
-        transcript = await listener.capture({
+        result = await listener.capture({
           adapterCreator: interaction.guild.voiceAdapterCreator,
           channelId,
           guildId: request.guildId,
@@ -52,8 +53,14 @@ export const createVoiceFeature: CreateVoiceFeature = ({ language, logger, model
         return;
       }
 
-      if (transcript.trim().length === 0) {
+      if (result.transcript.trim().length === 0) {
         await interaction.editReply("🎙️ Não percebi nada. Tenta outra vez.");
+        return;
+      }
+
+      const transcript = await resolveTranscript(result, language, false);
+      if (transcript === null) {
+        await interaction.editReply(`🎙️ "${result.transcript}"\n🤷 Não percebi o comando.`);
         return;
       }
 

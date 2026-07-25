@@ -29,7 +29,6 @@ const PT: VoiceVocabulary = {
     [{ kind: "shuffle" }, ["baralha", "baralhar", "aleatorio"]],
   ],
   grammar: [
-    "dijay",
     "dj",
     "pausa",
     "pausar",
@@ -89,18 +88,16 @@ const PT: VoiceVocabulary = {
 const EN: VoiceVocabulary = {
   controlKeywords: [
     [{ kind: "pause" }, ["pause"]],
-    [{ kind: "resume" }, ["resume", "continue", "unpause"]],
+    [{ kind: "resume" }, ["resume", "continue"]],
     [{ kind: "skip" }, ["skip", "next", "forward"]],
     [{ kind: "stop" }, ["stop", "leave", "quit"]],
     [{ kind: "shuffle" }, ["shuffle", "random"]],
   ],
   grammar: [
-    "dijay",
     "dj",
     "pause",
     "resume",
     "continue",
-    "unpause",
     "skip",
     "next",
     "forward",
@@ -247,4 +244,20 @@ export function parseWakeCommand(transcript: string, language: VoiceLanguage = "
     return { kind: "unknown" };
   }
   return parseCommandText(stripWakeWord(normalized, vocabulary.wakeWords), vocabulary);
+}
+
+/**
+ * Pulls the search query out of an OPEN (grammar-free) transcript of a play command, e.g.
+ * "dijay play adele" -> "adele". The wake word and everything up to and including the first
+ * play verb are dropped; if no play verb is recognized, the text after the wake word is used.
+ * Used for the second recognition pass so an arbitrary song name is not forced through the
+ * command grammar (which would turn it into "[unk]").
+ */
+export function extractPlayQuery(transcript: string, language: VoiceLanguage = "pt"): string {
+  const vocabulary = VOCABULARIES[language];
+  const text = stripWakeWord(normalizeTranscript(transcript), vocabulary.wakeWords);
+  const words = text.split(" ").filter((word) => word.length > 0 && word !== "unk");
+  const verbIndex = words.findIndex((word) => vocabulary.playVerbs.has(word));
+  const query = verbIndex >= 0 ? words.slice(verbIndex + 1) : words;
+  return query.join(" ").trim();
 }
