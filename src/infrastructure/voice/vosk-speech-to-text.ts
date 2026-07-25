@@ -19,7 +19,15 @@ export class VoskSpeechToText implements SpeechToText {
   }
 
   public transcribe(pcm: Buffer, sampleRate: number): Promise<string> {
-    const recognizer = this.createRecognizer(sampleRate);
+    return this.run(pcm, sampleRate, true);
+  }
+
+  public transcribeOpen(pcm: Buffer, sampleRate: number): Promise<string> {
+    return this.run(pcm, sampleRate, false);
+  }
+
+  private run(pcm: Buffer, sampleRate: number, useGrammar: boolean): Promise<string> {
+    const recognizer = this.createRecognizer(sampleRate, useGrammar);
     try {
       recognizer.acceptWaveform(pcm);
       // Without setMaxAlternatives Vosk returns `{ text }`, not `{ alternatives }`, so read
@@ -36,8 +44,11 @@ export class VoskSpeechToText implements SpeechToText {
     }
   }
 
-  private createRecognizer(sampleRate: number): Recognizer<{ grammar?: string[] }> {
-    if (this.grammar !== undefined && this.grammar.length > 0) {
+  private createRecognizer(
+    sampleRate: number,
+    useGrammar: boolean,
+  ): Recognizer<{ grammar?: string[] }> {
+    if (useGrammar && this.grammar !== undefined && this.grammar.length > 0) {
       try {
         return new Recognizer({ grammar: [...this.grammar], model: this.model, sampleRate });
       } catch {

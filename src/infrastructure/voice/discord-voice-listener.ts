@@ -30,6 +30,13 @@ export interface VoiceCaptureRequest {
   readonly userId: string;
 }
 
+export interface CaptureResult {
+  /** Constrained (grammar) transcription, for reliable command detection. */
+  readonly transcript: string;
+  /** Re-transcribes the same audio with open vocabulary (for a spoken song name). */
+  transcribeOpen(): Promise<string>;
+}
+
 /**
  * Captures a single spoken utterance from one member via a dedicated voice session and
  * transcribes it. Because Lavalink holds the guild voice connection while playing, joining
@@ -39,7 +46,7 @@ export interface VoiceCaptureRequest {
 export class DiscordVoiceListener {
   public constructor(private readonly stt: SpeechToText) {}
 
-  public async capture(request: VoiceCaptureRequest): Promise<string> {
+  public async capture(request: VoiceCaptureRequest): Promise<CaptureResult> {
     const connection = joinVoiceChannel({
       adapterCreator: request.adapterCreator,
       channelId: request.channelId,
@@ -68,7 +75,7 @@ export class DiscordVoiceListener {
     receiver: VoiceReceiver,
     userId: string,
     maxDurationMs: number,
-  ): Promise<string> {
+  ): Promise<CaptureResult> {
     const opus = receiver.subscribe(userId, {
       end: { behavior: EndBehaviorType.AfterSilence, duration: SILENCE_MS },
     });
@@ -83,9 +90,15 @@ export class DiscordVoiceListener {
     decoder.once("error", noop);
     const stereo = await collect(opus.pipe(decoder), maxDurationMs);
     if (stereo.length === 0) {
-      return "";
+      return { transcript: "", transcribeOpen: () => Promise.resolve("") };
     }
-    return this.stt.transcribe(toMono16k(stereo), TARGET_SAMPLE_RATE);
+    // Keep the mono PCM so the query can be re-transcribed open-vocabulary only when needed.
+    const mono = toMono16k(stereo);
+    const transcript = await this.stt.transcribe(mono, TARGET_SAMPLE_RATE);
+    return {
+      transcript,
+      transcribeOpen: () => this.stt.transcribeOpen(mono, TARGET_SAMPLE_RATE),
+    };
   }
 }
 

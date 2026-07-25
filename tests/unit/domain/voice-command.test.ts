@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  extractPlayQuery,
   parseVoiceCommand,
   parseWakeCommand,
   voiceGrammar,
@@ -91,5 +92,26 @@ describe("voiceGrammar", () => {
     // wake-word mode would match nothing.
     expect(voiceGrammar("pt")).toContain("dj");
     expect(voiceGrammar("en")).toContain("dj");
+  });
+});
+
+describe("extractPlayQuery", () => {
+  it("drops the wake word and play verb, keeping the song name", () => {
+    expect(extractPlayQuery("dijay play adele", "en")).toBe("adele");
+    expect(extractPlayQuery("dj toca coldplay yellow", "pt")).toBe("coldplay yellow");
+    expect(extractPlayQuery("play daft punk one more time", "en")).toBe("daft punk one more time");
+  });
+
+  it("finds the play verb even after a garbled leading token", () => {
+    expect(extractPlayQuery("digi play adele", "en")).toBe("adele");
+  });
+
+  it("uses the text after the wake word when no play verb is recognized", () => {
+    expect(extractPlayQuery("dj adele", "en")).toBe("adele");
+  });
+
+  it("returns empty when only the wake word and verb were heard", () => {
+    expect(extractPlayQuery("dj play unk", "en")).toBe("");
+    expect(extractPlayQuery("dj", "en")).toBe("");
   });
 });
