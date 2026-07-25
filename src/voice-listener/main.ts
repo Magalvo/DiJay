@@ -186,6 +186,11 @@ async function main(): Promise<void> {
         .captureUtterance(receiver, userId, MAX_CAPTURE_MS)
         .then(async (transcript) => {
           cooldownUntil.set(userId, Date.now() + WAKE_COOLDOWN_MS);
+          // Surface what Vosk heard so the wake word and commands can be calibrated; drop
+          // utterances that do not begin with the wake word.
+          if (transcript.trim().length > 0) {
+            logger.info({ transcript }, "Wake listener heard");
+          }
           if (parseWakeCommand(transcript, config.voice.language).kind === "unknown") {
             return;
           }

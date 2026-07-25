@@ -29,6 +29,8 @@ const PT: VoiceVocabulary = {
     [{ kind: "shuffle" }, ["baralha", "baralhar", "aleatorio"]],
   ],
   grammar: [
+    "dijay",
+    "dj",
     "pausa",
     "pausar",
     "retoma",
@@ -93,6 +95,8 @@ const EN: VoiceVocabulary = {
     [{ kind: "shuffle" }, ["shuffle", "random"]],
   ],
   grammar: [
+    "dijay",
+    "dj",
     "pause",
     "resume",
     "continue",
