@@ -1,0 +1,6 @@
+# Normalize line endings: store text as LF in the repo and check out LF on all
+# platforms, so Prettier's `format:check` is deterministic on Windows too.
+* text=auto eol=lf
+
+# Keep binary assets untouched.
+*.png binary
