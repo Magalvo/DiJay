@@ -100,6 +100,7 @@ export async function startBot(config: AppConfig): Promise<void> {
         readonly createVoiceFeature: CreateVoiceFeature;
       };
       voiceFeature = voiceModule.createVoiceFeature({
+        language: config.voice.language,
         logger,
         modelPath: config.voice.modelPath,
         music,
@@ -122,7 +123,7 @@ export async function startBot(config: AppConfig): Promise<void> {
   // network, never published.
   let voiceCommandServer: VoiceCommandServer | undefined;
   if (config.voiceIpc.enabled) {
-    const voiceCommands = new VoiceCommandService(music);
+    const voiceCommands = new VoiceCommandService(music, config.voice.language);
     try {
       voiceCommandServer = await startVoiceCommandServer(
         config.voiceIpc.port,

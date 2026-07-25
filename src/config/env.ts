@@ -28,6 +28,8 @@ const environmentSchema = z.object({
   VOICE_BOT_CLIENT_ID: z.string().trim().default(""),
   VOICE_BOT_TOKEN: z.string().trim().default(""),
   VOICE_ENABLED: booleanFromString,
+  // Language of the spoken-command grammar and parser (Vosk model must match).
+  VOICE_LANGUAGE: z.enum(["pt", "en"]).default("pt"),
   // Internal IPC between the listener and the main bot, on the private network only.
   VOICE_IPC_PORT: z.coerce.number().int().positive().max(65_535).default(3_100),
   VOICE_IPC_SECRET: z
@@ -65,6 +67,7 @@ export interface AppConfig {
   };
   readonly voice: {
     readonly enabled: boolean;
+    readonly language: "pt" | "en";
     readonly modelPath: string;
   };
   readonly voiceBot: {
@@ -112,6 +115,7 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     voice: {
       enabled: result.data.VOICE_ENABLED,
+      language: result.data.VOICE_LANGUAGE,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
     },
     voiceBot: {

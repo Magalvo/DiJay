@@ -14,7 +14,7 @@ import {
 import pino from "pino";
 
 import { parseEnv } from "../config/env.js";
-import { VOICE_GRAMMAR } from "../domain/voice/voice-command.js";
+import { voiceGrammar } from "../domain/voice/voice-command.js";
 import { forwardVoiceCommand } from "../infrastructure/ipc/voice-command-client.js";
 import { DiscordVoiceListener } from "../infrastructure/voice/discord-voice-listener.js";
 import { VoskSpeechToText } from "../infrastructure/voice/vosk-speech-to-text.js";
@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     throw new Error("VOICE_IPC_SECRET is required for the voice listener");
   }
 
-  const stt = new VoskSpeechToText(config.voice.modelPath, VOICE_GRAMMAR);
+  const stt = new VoskSpeechToText(config.voice.modelPath, voiceGrammar(config.voice.language));
   const listener = new DiscordVoiceListener(stt);
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],

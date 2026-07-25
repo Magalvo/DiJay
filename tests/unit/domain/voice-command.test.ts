@@ -37,4 +37,28 @@ describe("parseVoiceCommand", () => {
     expect(parseVoiceCommand("olá tudo bem")).toEqual({ kind: "unknown" });
     expect(parseVoiceCommand("")).toEqual({ kind: "unknown" });
   });
+
+  it("maps English control phrases when the language is en", () => {
+    expect(parseVoiceCommand("pause", "en")).toEqual({ kind: "pause" });
+    expect(parseVoiceCommand("DiJay next", "en")).toEqual({ kind: "skip" });
+    expect(parseVoiceCommand("shuffle the queue", "en")).toEqual({ kind: "shuffle" });
+    expect(parseVoiceCommand("stop", "en")).toEqual({ kind: "stop" });
+  });
+
+  it("extracts an English play query and volume", () => {
+    expect(parseVoiceCommand("play daft punk one more time", "en")).toEqual({
+      kind: "play",
+      query: "daft punk one more time",
+    });
+    expect(parseVoiceCommand("volume forty", "en")).toEqual({ kind: "volume", level: 40 });
+    expect(parseVoiceCommand("set the volume to eighty", "en")).toEqual({
+      kind: "volume",
+      level: 80,
+    });
+  });
+
+  it("does not understand the other language's words", () => {
+    expect(parseVoiceCommand("pausa", "en")).toEqual({ kind: "unknown" });
+    expect(parseVoiceCommand("pause", "pt")).toEqual({ kind: "unknown" });
+  });
 });
