@@ -33,7 +33,11 @@ bot.
 Leaving the credentials empty keeps every other source working; Spotify links simply fail
 to resolve.
 
-## Voice recognition (optional)
+## Voice recognition — in-process (legacy)
+
+> The **voice-listener sidecar** below is the recommended way to run voice. It does not
+> interrupt playback and does not block the main bot. Use this in-process mode only for a quick
+> single-bot trial.
 
 The default image excludes the native voice/STT packages. To run `/listen` on the VPS, use
 the Debian voice image and mount a Vosk model.
@@ -68,6 +72,65 @@ or library) under `err`.
 
 Because Lavalink holds the guild voice connection while playing, `/listen` takes it over
 for a short capture window.
+
+## Voice-listener sidecar (recommended)
+
+A dedicated second bot receives voice in its own process and forwards recognized commands to
+the main bot over the private network. Because it is a separate identity it never takes the
+Lavalink voice connection (playback keeps running), and because it is a separate process the
+main bot is never blocked by transcription.
+
+1. Create a **second Discord application** (its own bot) and invite it to the same server with
+   only **View Channels + Connect** and the `applications.commands` scope. Copy its bot token
+   (Bot tab) and its application/client id.
+
+2. Download a Vosk model into `./models` on the host (small models are enough and fit the
+   memory limit):
+
+   ```
+   mkdir -p models
+   # Portuguese: vosk-model-small-pt-0.3 · English: vosk-model-small-en-us-0.15
+   curl -L -o /tmp/vosk.zip https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip
+   unzip /tmp/vosk.zip -d models && rm /tmp/vosk.zip
+   ```
+
+   The result must be e.g. `models/vosk-model-small-pt-0.3/` containing `conf/model.conf`.
+
+3. Set in `.env` (the main bot enables its internal IPC endpoint automatically when the secret
+   is present; the listener reaches it at `http://bot:3100`):
+
+   ```
+   VOICE_BOT_TOKEN=...            # the second bot's token
+   VOICE_BOT_CLIENT_ID=...        # the second app's id
+   VOICE_IPC_SECRET=...           # shared secret, >= 16 chars (openssl rand -hex 32)
+   VOICE_LANGUAGE=pt              # or en
+   VOICE_STT_MODEL_PATH=./models/vosk-model-small-pt-0.3   # match the language
+   VOICE_WAKE_WORD_ENABLED=false  # true for hands-free "dj ..." mode
+   ```
+
+4. Build and start the sidecar next to the main bot:
+
+   `docker compose -f compose.yml -f compose.voice-listener.yml up -d --build`
+
+   Confirm in the logs: the main bot prints `Voice command IPC server listening` and the
+   listener prints `Voice listener ready`. The second bot then shows as online.
+
+Modes:
+
+- **Push-to-talk** (`VOICE_WAKE_WORD_ENABLED=false`): run `/listen` (registered by the second
+  bot) in a voice channel and speak one command.
+- **Hands-free** (`VOICE_WAKE_WORD_ENABLED=true`): the listener follows people into the channel
+  and acts on any utterance beginning with the wake word `dj` (e.g. "dj skip"). The music
+  changing is the only feedback — the listener has no send permission and no interaction.
+
+Switch language by changing `VOICE_LANGUAGE` and `VOICE_STT_MODEL_PATH` to the matching model,
+then recreate the listener (`... up -d --build voice-listener`). A relative model path works in
+Docker (it resolves under `/app` via the `./models` mount) and locally.
+
+Privacy and limits: nothing is persisted and no transcript is logged. Hands-free mode
+transcribes channel speech continuously in the listener process — a deliberate CPU/privacy
+trade-off, off by default. Discord voice receive is officially unsupported; acceptable for a
+private server.
 
 ## Update and rollback
 
