@@ -1,4 +1,8 @@
-import { parseVoiceCommand, type VoiceIntent } from "../../domain/voice/voice-command.js";
+import {
+  parseVoiceCommand,
+  type VoiceIntent,
+  type VoiceLanguage,
+} from "../../domain/voice/voice-command.js";
 import type { PlaybackRequest } from "../music/music-gateway.js";
 import type { MusicService } from "../music/music-service.js";
 
@@ -14,10 +18,13 @@ export interface VoiceCommandOutcome {
  * not understand.
  */
 export class VoiceCommandService {
-  public constructor(private readonly music: MusicService) {}
+  public constructor(
+    private readonly music: MusicService,
+    private readonly language: VoiceLanguage = "pt",
+  ) {}
 
   public async handle(transcript: string, request: PlaybackRequest): Promise<VoiceCommandOutcome> {
-    const intent = parseVoiceCommand(transcript);
+    const intent = parseVoiceCommand(transcript, this.language);
     switch (intent.kind) {
       case "pause":
         await this.music.pause(request);

@@ -56,6 +56,19 @@ describe("VoiceCommandService", () => {
     expect(music.setVolume).toHaveBeenCalledWith({ ...request, volume: 40 });
   });
 
+  it("dispatches English commands when constructed with the en language", async () => {
+    const music = musicMock();
+    const service = new VoiceCommandService(music, "en");
+
+    const play = await service.handle("play daft punk", request);
+    const skip = await service.handle("skip", request);
+
+    expect(music.play).toHaveBeenCalledWith({ ...request, position: "queue", query: "daft punk" });
+    expect(play.intent).toBe("play");
+    expect(music.skip).toHaveBeenCalledWith(request);
+    expect(skip.intent).toBe("skip");
+  });
+
   it("ignores speech it does not understand", async () => {
     const music = musicMock();
     const service = new VoiceCommandService(music);

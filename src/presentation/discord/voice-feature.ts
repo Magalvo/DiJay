@@ -1,6 +1,7 @@
 import type { ChatInputCommandInteraction } from "discord.js";
 
 import type { MusicService } from "../../application/music/music-service.js";
+import type { VoiceLanguage } from "../../domain/voice/voice-command.js";
 import type { AppLogger } from "./command.js";
 
 /**
@@ -14,6 +15,7 @@ export interface VoiceFeature {
 }
 
 export interface VoiceFeatureDeps {
+  readonly language: VoiceLanguage;
   readonly logger: AppLogger;
   readonly modelPath: string;
   readonly music: MusicService;

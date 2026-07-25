@@ -36,11 +36,19 @@ describe("parseEnv", () => {
 
   it("disables voice recognition by default and can enable it", () => {
     expect(parseEnv(validEnv)).toMatchObject({
-      voice: { enabled: false, modelPath: "./models/vosk" },
+      voice: { enabled: false, language: "pt", modelPath: "./models/vosk" },
     });
     expect(
       parseEnv({ ...validEnv, VOICE_ENABLED: "true", VOICE_STT_MODEL_PATH: "/opt/vosk-pt" }),
     ).toMatchObject({ voice: { enabled: true, modelPath: "/opt/vosk-pt" } });
+  });
+
+  it("selects the voice language, defaulting to Portuguese", () => {
+    expect(parseEnv(validEnv)).toMatchObject({ voice: { language: "pt" } });
+    expect(parseEnv({ ...validEnv, VOICE_LANGUAGE: "en" })).toMatchObject({
+      voice: { language: "en" },
+    });
+    expect(() => parseEnv({ ...validEnv, VOICE_LANGUAGE: "fr" })).toThrowError(/VOICE_LANGUAGE/);
   });
 
   it("treats Spotify as unconfigured unless both credentials are present", () => {
