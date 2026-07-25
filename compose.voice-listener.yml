@@ -7,7 +7,10 @@
 # internal IPC endpoint automatically once VOICE_IPC_SECRET is present. Nothing is published
 # off the private network; the listener reaches the main bot at http://bot:3100.
 #
-# Download the Vosk model to ./models first (see docs/canonical/operations.md).
+# Download the Vosk model into ./models first (see docs/canonical/operations.md). The model to
+# use comes from VOICE_STT_MODEL_PATH in .env, e.g. ./models/vosk-model-small-pt-0.3 (a relative
+# path resolves under the container's /app via the ./models mount, so it works locally too).
+# Switch language with VOICE_LANGUAGE + the matching model path — no need to edit this file.
 services:
   voice-listener:
     build:
@@ -20,7 +23,6 @@ services:
     environment:
       NODE_ENV: production
       VOICE_IPC_URL: http://bot:3100
-      VOICE_STT_MODEL_PATH: /app/models/vosk-model-small-pt-0.3
     depends_on:
       bot:
         condition: service_healthy
