@@ -3,15 +3,12 @@ import { MessageFlags } from "discord.js";
 import { VoiceCommandService } from "../../application/voice/voice-command-service.js";
 import { VOICE_GRAMMAR } from "../../domain/voice/voice-command.js";
 import { playbackRequestFromInteraction } from "../../presentation/discord/interaction-context.js";
+import { userFacingMusicError } from "../../presentation/discord/user-messages.js";
 import type { CreateVoiceFeature } from "../../presentation/discord/voice-feature.js";
 import { DiscordVoiceListener } from "./discord-voice-listener.js";
 import { VoskSpeechToText } from "./vosk-speech-to-text.js";
 
 const MAX_CAPTURE_MS = 6_000;
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Assembles the voice feature. Loaded dynamically from `bootstrap` only when voice is
@@ -49,10 +46,9 @@ export const createVoiceFeature: CreateVoiceFeature = ({ logger, modelPath, musi
           userId: interaction.user.id,
         });
       } catch (error) {
+        // Log the real failure (native lib, model path, timeout) but keep it off Discord.
         logger.error({ err: error, guildId: request.guildId }, "Voice capture failed");
-        await interaction.editReply(
-          `⚠️ Falha ao captar/transcrever a voz: ${describeError(error)}`,
-        );
+        await interaction.editReply("⚠️ Não consegui captar a tua voz. Tenta novamente.");
         return;
       }
 
@@ -66,7 +62,7 @@ export const createVoiceFeature: CreateVoiceFeature = ({ logger, modelPath, musi
         await interaction.editReply(`🎙️ "${transcript}"\n${outcome.message}`);
       } catch (error) {
         logger.error({ err: error, guildId: request.guildId }, "Voice command failed");
-        await interaction.editReply(`🎙️ "${transcript}"\n⚠️ ${describeError(error)}`);
+        await interaction.editReply(`🎙️ "${transcript}"\n⚠️ ${userFacingMusicError(error)}`);
       }
     },
     dispose() {

@@ -27,6 +27,16 @@ export class LivePanelManager {
     this.panels.set(guildId, { channelId, messageId });
   }
 
+  /**
+   * True when the given message is safe to (re)register as the guild's live panel: either
+   * nothing is tracked yet, or it already is the tracked panel. This stops a click on an
+   * older, stale panel message from stealing live status from the current one.
+   */
+  public isCurrent(guildId: string, channelId: string, messageId: string): boolean {
+    const ref = this.panels.get(guildId);
+    return ref === undefined || (ref.channelId === channelId && ref.messageId === messageId);
+  }
+
   public clear(guildId: string): void {
     this.panels.delete(guildId);
   }

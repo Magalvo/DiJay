@@ -58,6 +58,9 @@ export async function startBot(config: AppConfig): Promise<void> {
   const idlePlayers = new IdlePlayerManager();
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+    // Track titles are untrusted (any search result can be queued): a title containing
+    // `@everyone`/`@here` would otherwise ping the server when announced or echoed back.
+    allowedMentions: { parse: [] },
   });
   const poru = new Poru(
     client,

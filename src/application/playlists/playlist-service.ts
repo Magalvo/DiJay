@@ -11,6 +11,16 @@ import type { PlaylistRepository } from "./playlist-repository.js";
 
 const MAX_PLAYLIST_NAME_LENGTH = 40;
 
+// Errors that mean no track in the playlist could ever be queued (the caller is not in the
+// bot's voice channel, or the guild is not allowed). These abort the whole load; every other
+// per-track failure is transient or track-specific and is counted as `failed` so the rest of
+// the playlist still loads.
+const ABORTING_CODES = new Set<MusicError["code"]>([
+  "NOT_IN_SAME_VOICE_CHANNEL",
+  "VOICE_CHANNEL_REQUIRED",
+  "UNAUTHORIZED_GUILD",
+]);
+
 export class PlaylistService {
   public constructor(
     private readonly repository: PlaylistRepository,
@@ -75,11 +85,12 @@ export class PlaylistService {
         const result = await this.music.play({ ...request, position: "queue", query });
         added += result.added.length;
       } catch (error) {
-        if (error instanceof MusicError && error.code === "TRACK_NOT_FOUND") {
-          failed += 1;
-          continue;
+        if (error instanceof MusicError && ABORTING_CODES.has(error.code)) {
+          throw error;
         }
-        throw error;
+        // Track-specific (not found, invalid) or transient (Lavalink hiccup) failure: skip
+        // this track and keep loading the rest instead of dropping the whole playlist.
+        failed += 1;
       }
     }
 

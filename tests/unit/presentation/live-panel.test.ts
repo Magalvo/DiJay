@@ -75,4 +75,25 @@ describe("LivePanelManager", () => {
 
     expect(edit).not.toHaveBeenCalled();
   });
+
+  it("treats any message as current while no panel is registered", () => {
+    const { manager } = setup(state);
+
+    expect(manager.isCurrent("guild-1", "channel-1", "message-1")).toBe(true);
+  });
+
+  it("recognizes the registered panel as current", () => {
+    const { manager } = setup(state);
+    manager.register("guild-1", "channel-1", "message-1");
+
+    expect(manager.isCurrent("guild-1", "channel-1", "message-1")).toBe(true);
+  });
+
+  it("rejects a stale panel message once a newer one is registered", () => {
+    const { manager } = setup(state);
+    manager.register("guild-1", "channel-1", "message-new");
+
+    expect(manager.isCurrent("guild-1", "channel-1", "message-old")).toBe(false);
+    expect(manager.isCurrent("guild-1", "channel-2", "message-new")).toBe(false);
+  });
 });
