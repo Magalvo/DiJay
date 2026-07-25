@@ -1,6 +1,6 @@
 import type { DiscordButtonHandler } from "./command.js";
 import { buildControlPanel, musicButtonIds } from "./control-panel.js";
-import { playbackRequestFromInteraction } from "./interaction-context.js";
+import { guildIdFromInteraction, playbackRequestFromInteraction } from "./interaction-context.js";
 import type { LivePanelManager } from "./live-panel.js";
 import type { MusicService } from "../../application/music/music-service.js";
 import type { LoopMode } from "../../domain/music/track.js";
@@ -12,6 +12,17 @@ export function createMusicButtonHandlers(
   return Object.values(musicButtonIds).map((customId) => ({
     customId,
     async execute(interaction) {
+      // Refresh only re-renders the panel from current state, so it must not require the
+      // clicker to be in a voice channel like the playback controls do.
+      if (customId === musicButtonIds.refresh) {
+        const guildId = guildIdFromInteraction(interaction);
+        await interaction.deferUpdate();
+        const state = await music.getState(guildId);
+        await interaction.editReply(buildControlPanel(state));
+        livePanel.register(guildId, interaction.channelId, interaction.message.id);
+        return;
+      }
+
       const request = playbackRequestFromInteraction(interaction);
       await interaction.deferUpdate();
 
