@@ -1,6 +1,7 @@
 import { MessageFlags } from "discord.js";
 
 import { VoiceCommandService } from "../../application/voice/voice-command-service.js";
+import { VOICE_GRAMMAR } from "../../domain/voice/voice-command.js";
 import { playbackRequestFromInteraction } from "../../presentation/discord/interaction-context.js";
 import type { CreateVoiceFeature } from "../../presentation/discord/voice-feature.js";
 import { DiscordVoiceListener } from "./discord-voice-listener.js";
@@ -17,7 +18,7 @@ function describeError(error: unknown): string {
  * enabled, so the native STT and audio packages stay optional.
  */
 export const createVoiceFeature: CreateVoiceFeature = ({ logger, modelPath, music }) => {
-  const stt = new VoskSpeechToText(modelPath);
+  const stt = new VoskSpeechToText(modelPath, VOICE_GRAMMAR);
   const listener = new DiscordVoiceListener(stt);
   const commands = new VoiceCommandService(music);
 

@@ -22,6 +22,52 @@ const CONTROL_KEYWORDS: readonly (readonly [VoiceIntent, readonly string[]])[] =
   [{ kind: "shuffle" }, ["baralha", "baralhar", "aleatorio", "shuffle"]],
 ];
 
+/**
+ * Portuguese vocabulary handed to the recognizer as a constrained grammar. Limiting Vosk to
+ * these words makes short spoken commands far more reliable than open recognition. English
+ * synonyms and the wake word are omitted because they are unlikely to exist in a PT model's
+ * lexicon (push-to-talk does not need a wake word). `[unk]` lets Vosk reject anything else.
+ */
+export const VOICE_GRAMMAR: readonly string[] = [
+  "pausa",
+  "pausar",
+  "retoma",
+  "retomar",
+  "continua",
+  "continuar",
+  "salta",
+  "saltar",
+  "proxima",
+  "proximo",
+  "passa",
+  "avanca",
+  "para",
+  "parar",
+  "sai",
+  "desliga",
+  "baralha",
+  "baralhar",
+  "aleatorio",
+  "volume",
+  "toca",
+  "tocar",
+  "poe",
+  "reproduz",
+  "reproduzir",
+  "zero",
+  "dez",
+  "vinte",
+  "trinta",
+  "quarenta",
+  "cinquenta",
+  "sessenta",
+  "setenta",
+  "oitenta",
+  "noventa",
+  "cem",
+  "[unk]",
+];
+
 const NUMBER_WORDS: Readonly<Record<string, number>> = {
   zero: 0,
   dez: 10,

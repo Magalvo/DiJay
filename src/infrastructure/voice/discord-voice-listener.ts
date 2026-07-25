@@ -95,16 +95,22 @@ function collect(stream: Readable, maxDurationMs: number): Promise<Buffer> {
   });
 }
 
-/** Averages the stereo channels and decimates 48kHz to 16kHz for the recognizer. */
+/**
+ * Downmixes 48kHz stereo to 16kHz mono. Each output sample averages a group of DECIMATION
+ * stereo frames (a cheap low-pass) instead of dropping samples, which reduces the aliasing
+ * noise that hurts recognition.
+ */
 function toMono16k(stereo: Buffer): Buffer {
   const frames = Math.floor(stereo.length / 4);
   const output = Buffer.alloc(Math.floor(frames / DECIMATION) * 2);
   let offset = 0;
-  for (let frame = 0; frame < frames; frame += DECIMATION) {
-    const base = frame * 4;
-    const left = stereo.readInt16LE(base);
-    const right = stereo.readInt16LE(base + 2);
-    output.writeInt16LE((left + right) >> 1, offset);
+  for (let frame = 0; frame + DECIMATION <= frames; frame += DECIMATION) {
+    let sum = 0;
+    for (let step = 0; step < DECIMATION; step += 1) {
+      const base = (frame + step) * 4;
+      sum += (stereo.readInt16LE(base) + stereo.readInt16LE(base + 2)) >> 1;
+    }
+    output.writeInt16LE(Math.round(sum / DECIMATION), offset);
     offset += 2;
   }
   return output;

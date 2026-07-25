@@ -10,13 +10,16 @@ import type { SpeechToText } from "../../application/voice/speech-to-text.js";
 export class VoskSpeechToText implements SpeechToText {
   private readonly model: Model;
 
-  public constructor(modelPath: string) {
+  public constructor(
+    modelPath: string,
+    private readonly grammar?: readonly string[],
+  ) {
     setLogLevel(-1);
     this.model = new Model(modelPath);
   }
 
   public transcribe(pcm: Buffer, sampleRate: number): Promise<string> {
-    const recognizer = new Recognizer({ model: this.model, sampleRate });
+    const recognizer = this.createRecognizer(sampleRate);
     try {
       recognizer.acceptWaveform(pcm);
       // Without setMaxAlternatives Vosk returns `{ text }`, not `{ alternatives }`, so read
@@ -25,10 +28,23 @@ export class VoskSpeechToText implements SpeechToText {
         alternatives?: { text?: string }[];
         text?: string;
       };
-      return Promise.resolve(result.text ?? result.alternatives?.[0]?.text ?? "");
+      const text = result.text ?? result.alternatives?.[0]?.text ?? "";
+      // Vosk emits "[unk]" for rejected speech under a grammar; treat it as nothing heard.
+      return Promise.resolve(text === "[unk]" ? "" : text);
     } finally {
       recognizer.free();
     }
+  }
+
+  private createRecognizer(sampleRate: number): Recognizer<{ grammar?: string[] }> {
+    if (this.grammar !== undefined && this.grammar.length > 0) {
+      try {
+        return new Recognizer({ grammar: [...this.grammar], model: this.model, sampleRate });
+      } catch {
+        // The model does not support a dynamic grammar; fall back to open recognition.
+      }
+    }
+    return new Recognizer({ model: this.model, sampleRate });
   }
 
   public close(): void {
