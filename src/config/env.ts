@@ -33,6 +33,33 @@ const environmentSchema = z.object({
   // Hands-free mode on the listener sidecar (WI-014): stay in the channel and act on any
   // utterance that begins with the wake word ("dj"). Opt-in; off keeps push-to-talk /listen.
   VOICE_WAKE_WORD_ENABLED: booleanFromString,
+  // Self-triggering soundboard words (WI-015): comma-separated `key:soundId` pairs mapping a
+  // spoken trigger (e.g. "gelado") to a Discord soundboard sound id. Empty disables the
+  // feature. The keys must match the domain's soundboard triggers to be recognizable.
+  VOICE_SOUNDBOARD_SOUNDS: z
+    .string()
+    .trim()
+    .default("")
+    .transform((raw, ctx) => {
+      const sounds: Record<string, string> = {};
+      for (const entry of raw
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)) {
+        const separator = entry.indexOf(":");
+        const key = separator > 0 ? entry.slice(0, separator).trim().toLowerCase() : "";
+        const id = separator > 0 ? entry.slice(separator + 1).trim() : "";
+        if (key.length === 0 || !/^\d{17,20}$/.test(id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `malformed entry "${entry}" (expected key:snowflake)`,
+          });
+          return z.NEVER;
+        }
+        sounds[key] = id;
+      }
+      return sounds;
+    }),
   // Internal IPC between the listener and the main bot, on the private network only.
   VOICE_IPC_PORT: z.coerce.number().int().positive().max(65_535).default(3_100),
   VOICE_IPC_SECRET: z
@@ -72,6 +99,8 @@ export interface AppConfig {
     readonly enabled: boolean;
     readonly language: "pt" | "en";
     readonly modelPath: string;
+    /** Spoken trigger word -> Discord soundboard sound id. Empty when the feature is off. */
+    readonly soundboardSounds: Readonly<Record<string, string>>;
     readonly wakeWordEnabled: boolean;
   };
   readonly voiceBot: {
@@ -121,6 +150,7 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
       enabled: result.data.VOICE_ENABLED,
       language: result.data.VOICE_LANGUAGE,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
+      soundboardSounds: result.data.VOICE_SOUNDBOARD_SOUNDS,
       wakeWordEnabled: result.data.VOICE_WAKE_WORD_ENABLED,
     },
     voiceBot: {

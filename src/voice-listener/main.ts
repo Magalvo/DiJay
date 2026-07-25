@@ -7,6 +7,7 @@ import {
   joinVoiceChannel,
 } from "@discordjs/voice";
 import {
+  ChannelType,
   type ChatInputCommandInteraction,
   Client,
   Events,
@@ -20,7 +21,7 @@ import {
 import pino from "pino";
 
 import { parseEnv } from "../config/env.js";
-import { voiceGrammar } from "../domain/voice/voice-command.js";
+import { matchSoundboardTrigger, voiceGrammar } from "../domain/voice/voice-command.js";
 import { forwardVoiceCommand } from "../infrastructure/ipc/voice-command-client.js";
 import {
   type CaptureResult,
@@ -182,6 +183,23 @@ async function main(): Promise<void> {
       connectedChannelId = undefined;
     };
 
+    // Plays a native Discord soundboard sound in the channel the sidecar is listening in.
+    // Handled entirely here (not via the music IPC) so it overlays the music without touching
+    // Lavalink. Requires the bot to be connected, unmuted, and to hold the UseSoundboard perm.
+    const playSoundboard = async (soundId: string, channelId: string): Promise<void> => {
+      const channel = client.channels.cache.get(channelId);
+      if (channel === undefined || channel.type !== ChannelType.GuildVoice) {
+        logger.warn({ channelId }, "Cannot play soundboard: voice channel unavailable");
+        return;
+      }
+      try {
+        await channel.sendSoundboardSound({ soundId });
+        logger.info({ soundId }, "Soundboard sound played");
+      } catch (error) {
+        logger.error({ err: error, soundId }, "Failed to play soundboard sound");
+      }
+    };
+
     const onSpeak = (userId: string): void => {
       const receiver = connection?.receiver;
       const channelId = connectedChannelId;
@@ -200,6 +218,15 @@ async function main(): Promise<void> {
           // utterances that do not begin with the wake word.
           if (result.transcript.trim().length > 0) {
             logger.info({ transcript: result.transcript }, "Wake listener heard");
+          }
+          // Soundboard triggers (WI-015) are self-contained: hearing the word fires the sound
+          // with no wake word, handled locally so it overlays the music via Discord's native
+          // soundboard. Unconfigured triggers fall through to normal command handling.
+          const soundKey = matchSoundboardTrigger(result.transcript, config.voice.language);
+          const soundId = soundKey === null ? undefined : config.voice.soundboardSounds[soundKey];
+          if (soundId !== undefined) {
+            await playSoundboard(soundId, channelId);
+            return;
           }
           const transcript = await resolveTranscript(result, config.voice.language, true);
           if (transcript === null) {
@@ -243,7 +270,9 @@ async function main(): Promise<void> {
           channelId: target,
           guildId,
           selfDeaf: false,
-          selfMute: true,
+          // Unmuted: Discord rejects sending a soundboard sound (WI-015) from a self-muted
+          // client. Listening is receive-side, so being unmuted does not affect it.
+          selfMute: false,
         });
         try {
           await entersState(joined, VoiceConnectionStatus.Ready, READY_TIMEOUT_MS);

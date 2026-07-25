@@ -17,6 +17,13 @@ interface VoiceVocabulary {
   readonly grammar: readonly string[];
   readonly numberWords: Readonly<Record<string, number>>;
   readonly playVerbs: ReadonlySet<string>;
+  /**
+   * Self-triggering soundboard words: hearing any of the phrases fires the mapped sound
+   * (the `key`) with no wake word required, unlike control commands. Ordered so an earlier
+   * entry wins when several are heard. The concrete Discord sound id for each key is supplied
+   * out of band via configuration, keeping server-specific ids out of the domain.
+   */
+  readonly soundboardTriggers: readonly (readonly [string, readonly string[]])[];
   readonly wakeWords: readonly string[];
 }
 
@@ -66,6 +73,7 @@ const PT: VoiceVocabulary = {
     "oitenta",
     "noventa",
     "cem",
+    "gelado",
     "[unk]",
   ],
   numberWords: {
@@ -82,6 +90,7 @@ const PT: VoiceVocabulary = {
     cem: 100,
   },
   playVerbs: new Set(["toca", "tocar", "poe", "por", "reproduz", "reproduzir"]),
+  soundboardTriggers: [["gelado", ["gelado"]]],
   wakeWords: ["dijay", "di jay", "dj"],
 };
 
@@ -122,6 +131,7 @@ const EN: VoiceVocabulary = {
     "eighty",
     "ninety",
     "hundred",
+    "gelado",
     "[unk]",
   ],
   numberWords: {
@@ -138,6 +148,7 @@ const EN: VoiceVocabulary = {
     hundred: 100,
   },
   playVerbs: new Set(["play", "put", "queue", "start"]),
+  soundboardTriggers: [["gelado", ["gelado"]]],
   wakeWords: ["dijay", "di jay", "dj"],
 };
 
@@ -146,6 +157,28 @@ const VOCABULARIES: Readonly<Record<VoiceLanguage, VoiceVocabulary>> = { en: EN,
 /** Words handed to the recognizer as a constrained grammar for the given language. */
 export function voiceGrammar(language: VoiceLanguage): readonly string[] {
   return VOCABULARIES[language].grammar;
+}
+
+/**
+ * Returns the soundboard key whose trigger word appears in the utterance, or null when none
+ * does. Unlike commands, a soundboard trigger is self-contained: no wake word is required, so
+ * hearing "gelado" anywhere in the transcript fires its sound. Matching is on whole tokens so
+ * words that merely contain a trigger (e.g. "congelado") do not fire it.
+ */
+export function matchSoundboardTrigger(
+  transcript: string,
+  language: VoiceLanguage = "pt",
+): string | null {
+  const { soundboardTriggers } = VOCABULARIES[language];
+  // Space-pad so a phrase only matches on whole-token boundaries ("gelado" must not fire on
+  // "congelado"), while still allowing multi-word triggers.
+  const padded = ` ${normalizeTranscript(transcript)} `;
+  for (const [key, phrases] of soundboardTriggers) {
+    if (phrases.some((phrase) => padded.includes(` ${phrase} `))) {
+      return key;
+    }
+  }
+  return null;
 }
 
 /** Lowercases, strips accents and punctuation, and collapses whitespace. */

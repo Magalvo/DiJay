@@ -123,6 +123,7 @@ main bot is never blocked by transcription.
    VOICE_LANGUAGE=pt              # or en
    VOICE_STT_MODEL_PATH=./models/vosk-model-small-pt-0.3   # match the language
    VOICE_WAKE_WORD_ENABLED=false  # true for hands-free "dj ..." mode
+   VOICE_SOUNDBOARD_SOUNDS=       # e.g. gelado:<soundId> (see Soundboard triggers below)
    ```
 
 4. Build and start the sidecar next to the main bot:
@@ -139,6 +140,15 @@ Modes:
 - **Hands-free** (`VOICE_WAKE_WORD_ENABLED=true`): the listener follows people into the channel
   and acts on any utterance beginning with the wake word `dj` (e.g. "dj skip"). The music
   changing is the only feedback — the listener has no send permission and no interaction.
+
+Soundboard triggers (WI-015): in hands-free mode, self-triggering words play a native Discord
+soundboard sound over the music, with no `dj` prefix. Map each trigger to a sound id in
+`VOICE_SOUNDBOARD_SOUNDS` (comma-separated `key:soundId`, e.g. `gelado:1234567890123456789`);
+the key must be a recognized trigger (currently `gelado`). The sound must already exist in the
+server's soundboard, and the **listener** bot needs the **Use Soundboard** permission and to be
+unmuted (the sidecar joins unmuted for this). Same-server sounds need no "Use External Sounds".
+Get the sound id from the Discord API (the soundboard is not surfaced in the client UI id copy).
+Leave empty to disable.
 
 Switch language by changing `VOICE_LANGUAGE` and `VOICE_STT_MODEL_PATH` to the matching model,
 then recreate the listener (`... up -d --build voice-listener`). A relative model path works in
