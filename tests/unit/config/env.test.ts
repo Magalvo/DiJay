@@ -51,6 +51,13 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...validEnv, VOICE_LANGUAGE: "fr" })).toThrowError(/VOICE_LANGUAGE/);
   });
 
+  it("disables hands-free wake-word listening by default and can enable it", () => {
+    expect(parseEnv(validEnv)).toMatchObject({ voice: { wakeWordEnabled: false } });
+    expect(parseEnv({ ...validEnv, VOICE_WAKE_WORD_ENABLED: "true" })).toMatchObject({
+      voice: { wakeWordEnabled: true },
+    });
+  });
+
   it("treats Spotify as unconfigured unless both credentials are present", () => {
     expect(parseEnv(validEnv)).toMatchObject({ spotify: { configured: false } });
     expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id-only" })).toMatchObject({

@@ -3,6 +3,7 @@ import type { Readable } from "node:stream";
 import {
   type DiscordGatewayAdapterCreator,
   EndBehaviorType,
+  type VoiceReceiver,
   VoiceConnectionStatus,
   entersState,
   joinVoiceChannel,
@@ -48,26 +49,43 @@ export class DiscordVoiceListener {
     });
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, READY_TIMEOUT_MS);
-      const opus = connection.receiver.subscribe(request.userId, {
-        end: { behavior: EndBehaviorType.AfterSilence, duration: SILENCE_MS },
-      });
-      const decoder = new prism.opus.Decoder({
-        channels: 2,
-        frameSize: 960,
-        rate: DISCORD_SAMPLE_RATE,
-      });
-      // Silence the abort/close errors that tearing the streams down raises; the capture
-      // is considered empty rather than failed when no one speaks.
-      opus.once("error", noop);
-      decoder.once("error", noop);
-      const stereo = await collect(opus.pipe(decoder), request.maxDurationMs);
-      if (stereo.length === 0) {
-        return "";
-      }
-      return await this.stt.transcribe(toMono16k(stereo), TARGET_SAMPLE_RATE);
+      return await this.captureUtterance(
+        connection.receiver,
+        request.userId,
+        request.maxDurationMs,
+      );
     } finally {
       connection.destroy();
     }
+  }
+
+  /**
+   * Captures and transcribes a single utterance from one member on an already-connected
+   * receiver. Used by hands-free listening (WI-014), which keeps one persistent connection and
+   * captures per speaker, instead of joining and leaving for every command.
+   */
+  public async captureUtterance(
+    receiver: VoiceReceiver,
+    userId: string,
+    maxDurationMs: number,
+  ): Promise<string> {
+    const opus = receiver.subscribe(userId, {
+      end: { behavior: EndBehaviorType.AfterSilence, duration: SILENCE_MS },
+    });
+    const decoder = new prism.opus.Decoder({
+      channels: 2,
+      frameSize: 960,
+      rate: DISCORD_SAMPLE_RATE,
+    });
+    // Silence the abort/close errors that tearing the streams down raises; the capture is
+    // considered empty rather than failed when no one speaks.
+    opus.once("error", noop);
+    decoder.once("error", noop);
+    const stereo = await collect(opus.pipe(decoder), maxDurationMs);
+    if (stereo.length === 0) {
+      return "";
+    }
+    return this.stt.transcribe(toMono16k(stereo), TARGET_SAMPLE_RATE);
   }
 }
 

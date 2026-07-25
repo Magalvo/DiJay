@@ -30,6 +30,9 @@ const environmentSchema = z.object({
   VOICE_ENABLED: booleanFromString,
   // Language of the spoken-command grammar and parser (Vosk model must match).
   VOICE_LANGUAGE: z.enum(["pt", "en"]).default("pt"),
+  // Hands-free mode on the listener sidecar (WI-014): stay in the channel and act on any
+  // utterance that begins with the wake word ("dj"). Opt-in; off keeps push-to-talk /listen.
+  VOICE_WAKE_WORD_ENABLED: booleanFromString,
   // Internal IPC between the listener and the main bot, on the private network only.
   VOICE_IPC_PORT: z.coerce.number().int().positive().max(65_535).default(3_100),
   VOICE_IPC_SECRET: z
@@ -69,6 +72,7 @@ export interface AppConfig {
     readonly enabled: boolean;
     readonly language: "pt" | "en";
     readonly modelPath: string;
+    readonly wakeWordEnabled: boolean;
   };
   readonly voiceBot: {
     readonly clientId: string;
@@ -117,6 +121,7 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
       enabled: result.data.VOICE_ENABLED,
       language: result.data.VOICE_LANGUAGE,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
+      wakeWordEnabled: result.data.VOICE_WAKE_WORD_ENABLED,
     },
     voiceBot: {
       clientId: result.data.VOICE_BOT_CLIENT_ID,

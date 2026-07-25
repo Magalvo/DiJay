@@ -170,6 +170,10 @@ function stripWakeWord(normalized: string, wakeWords: readonly string[]): string
   return normalized;
 }
 
+function startsWithWakeWord(normalized: string, wakeWords: readonly string[]): boolean {
+  return wakeWords.some((wake) => normalized === wake || normalized.startsWith(`${wake} `));
+}
+
 function parseLevel(text: string, numberWords: Readonly<Record<string, number>>): number | null {
   const digits = /\d{1,3}/.exec(text);
   if (digits !== null) {
@@ -184,14 +188,7 @@ function parseLevel(text: string, numberWords: Readonly<Record<string, number>>)
   return null;
 }
 
-/**
- * Maps a raw speech transcript to a bounded voice intent for the given language. The wake word
- * is optional and stripped when present; unrecognized phrases resolve to `unknown` so callers
- * can ignore them safely.
- */
-export function parseVoiceCommand(transcript: string, language: VoiceLanguage = "pt"): VoiceIntent {
-  const vocabulary = VOCABULARIES[language];
-  const text = stripWakeWord(normalizeTranscript(transcript), vocabulary.wakeWords);
+function parseCommandText(text: string, vocabulary: VoiceVocabulary): VoiceIntent {
   if (text.length === 0) {
     return { kind: "unknown" };
   }
@@ -219,4 +216,31 @@ export function parseVoiceCommand(transcript: string, language: VoiceLanguage = 
   }
 
   return { kind: "unknown" };
+}
+
+/**
+ * Maps a raw speech transcript to a bounded voice intent for the given language. The wake word
+ * is optional and stripped when present; unrecognized phrases resolve to `unknown` so callers
+ * can ignore them safely.
+ */
+export function parseVoiceCommand(transcript: string, language: VoiceLanguage = "pt"): VoiceIntent {
+  const vocabulary = VOCABULARIES[language];
+  return parseCommandText(
+    stripWakeWord(normalizeTranscript(transcript), vocabulary.wakeWords),
+    vocabulary,
+  );
+}
+
+/**
+ * Like `parseVoiceCommand` but the wake word is REQUIRED: an utterance that does not begin with
+ * a wake word (or is only the wake word) resolves to `unknown`. Used by hands-free listening
+ * (WI-014) so the bot acts only on speech explicitly addressed to it.
+ */
+export function parseWakeCommand(transcript: string, language: VoiceLanguage = "pt"): VoiceIntent {
+  const vocabulary = VOCABULARIES[language];
+  const normalized = normalizeTranscript(transcript);
+  if (!startsWithWakeWord(normalized, vocabulary.wakeWords)) {
+    return { kind: "unknown" };
+  }
+  return parseCommandText(stripWakeWord(normalized, vocabulary.wakeWords), vocabulary);
 }

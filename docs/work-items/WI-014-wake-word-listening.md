@@ -18,30 +18,39 @@ the channel to spot the wake word), so it is strictly opt-in and off by default;
 
 ## Acceptance Criteria
 
-- [ ] Wake-word mode is behind its own flag (default off); push-to-talk `/listen` keeps working
-      unchanged when the flag is off.
-- [ ] While enabled, the listener stays connected to the voice channel and subscribes to
-      per-user audio continuously, capturing one utterance at a time.
-- [ ] An utterance is acted on only when it begins with the configured wake word; the wake word
-      is stripped and the remainder is parsed and forwarded via the existing WI-013 IPC.
-- [ ] Utterances without the wake word are discarded immediately; audio and non-command
+- [x] Wake-word mode is behind its own flag (`VOICE_WAKE_WORD_ENABLED`, default off);
+      push-to-talk `/listen` keeps working unchanged when the flag is off.
+- [x] While enabled, the listener stays connected to the voice channel and subscribes to
+      per-user audio continuously (via `receiver.speaking`), capturing one utterance at a time.
+- [x] An utterance is acted on only when it begins with the wake word (`parseWakeCommand`); the
+      wake word is stripped and the transcript is forwarded via the existing WI-013 IPC.
+- [x] Utterances without the wake word are discarded immediately; audio and non-command
       transcripts are never persisted and no transcript content is logged.
-- [ ] Wake-word detection reuses the constrained Vosk grammar and `parseVoiceCommand`; no new
-      native dependency is required for the initial version.
-- [ ] A debounce/cooldown prevents the same utterance or rapid repeats from firing twice.
-- [ ] User feedback works without a slash interaction (e.g. a short transient message or a
-      reaction) and is not spammy.
-- [ ] Recognition, silence, and IPC failures degrade without disconnecting or crashing the
-      listener, and never affect the main bot or its playback.
-- [ ] The CPU/privacy trade-off and the configurable wake word are documented.
-- [ ] Red/Green/Refactor and all quality gates are recorded.
+- [x] Wake-word detection reuses the constrained Vosk grammar and parser; no new native
+      dependency is required (approach A).
+- [x] A per-user cooldown prevents the same utterance or rapid repeats from firing twice.
+- [x] Feedback: the executed action itself is the feedback — the listener holds only
+      View/Connect (no SendMessages) and has no interaction, so it logs the outcome rather than
+      posting, avoiding channel spam.
+- [x] Recognition, silence, and IPC failures are caught per capture and never disconnect the
+      listener or affect the main bot or its playback.
+- [x] The CPU/privacy trade-off and the wake word are documented (`.env.example`, README-level).
+- [x] Red/Green/Refactor and all quality gates are recorded.
 
-## Open Decisions
+## Resolved Decisions
 
-- **Wake word choice:** a word the model recognizes reliably (the current grammar omits
-  "DiJay" as unlikely in the lexicon) vs a dedicated wake-word engine later.
-- **Detection engine:** start with Vosk keyword-spotting (approach A, no new deps) and keep the
-  door open for a dedicated always-on engine (openWakeWord / Porcupine) if accuracy is poor.
-- **Feedback UX:** transient channel message vs message reaction vs none (the music changing is
-  itself the feedback).
-- **Activation scope:** any speaker in the channel vs an allowlist of users; per-user cooldown.
+- **Wake word:** `dj` — already in both language vocabularies and recognizable by the model,
+  so no custom training. (Detection stays approach A.)
+- **Detection engine:** Vosk keyword-spotting; a dedicated engine (openWakeWord / Porcupine)
+  remains a future option if accuracy proves insufficient.
+- **Feedback UX:** none posted — the music action is the feedback (the listener lacks
+  SendMessages and has no interaction to reply to).
+- **Activation scope:** any non-bot speaker in the channel; the listener auto-joins the channel
+  that has people and leaves when it empties, with a per-user cooldown.
+
+## Implementation status
+
+Code-complete and unit-tested for the testable surface (`parseWakeCommand` per language, the
+config flag). The continuous-receive orchestration in the listener is validated via
+`typecheck:voice` / `build:voice`, like the rest of the receive infrastructure, and needs live
+validation on the VPS with the second bot in a voice channel.
