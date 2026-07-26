@@ -227,6 +227,22 @@ already active.
 Only relative `.mp3`, `.ogg`, and `.wav` files are accepted in the manifest. If the manifest is
 invalid, the bot logs the error and disables audio actions without affecting music playback.
 
+### DiJayMic greeting
+
+If the goal is for the automatically joining listener bot (DiJayMic) to speak when it enters the
+voice channel, enable the sidecar greeting instead of relying on Lavalink audio actions:
+
+```
+VOICE_WAKE_WORD_ENABLED=true
+VOICE_GREETING_ENABLED=true
+VOICE_GREETING_FILE=/app/audio-actions/greeting.mp3
+VOICE_GREETING_COOLDOWN_SECONDS=86400
+```
+
+The same `./audio-actions` host directory is mounted read-only into the voice-listener sidecar.
+The greeting plays through DiJayMic's existing voice connection after it joins for hands-free
+listening, and failures are logged without stopping recognition.
+
 ## Update and rollback
 
 - Before updating, create a backup and record the current Git revision.

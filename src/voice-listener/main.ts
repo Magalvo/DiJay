@@ -3,6 +3,8 @@ import "dotenv/config";
 import {
   type VoiceConnection,
   VoiceConnectionStatus,
+  createAudioPlayer,
+  createAudioResource,
   entersState,
   joinVoiceChannel,
 } from "@discordjs/voice";
@@ -36,6 +38,7 @@ import {
 } from "../infrastructure/voice/discord-voice-listener.js";
 import { resolveTranscript } from "../infrastructure/voice/resolve-transcript.js";
 import { VoskSpeechToText } from "../infrastructure/voice/vosk-speech-to-text.js";
+import { VoiceGreetingPlayer } from "./voice-greeting-player.js";
 
 const MAX_CAPTURE_MS = 6_000;
 const READY_TIMEOUT_MS = 10_000;
@@ -116,6 +119,20 @@ async function main(): Promise<void> {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
+  const greetingPlayer =
+    config.voice.greeting.enabled && config.voice.greeting.file.length > 0
+      ? new VoiceGreetingPlayer({
+          cooldownSeconds: config.voice.greeting.cooldownSeconds,
+          createAudioResource,
+          createPlayer: createAudioPlayer,
+          file: config.voice.greeting.file,
+          subscribe: (connection, player) => {
+            (connection as VoiceConnection).subscribe(
+              player as ReturnType<typeof createAudioPlayer>,
+            );
+          },
+        })
+      : undefined;
 
   const listenCommand = new SlashCommandBuilder()
     .setName("listen")
@@ -348,6 +365,11 @@ async function main(): Promise<void> {
         connection = joined;
         connectedChannelId = target;
         joined.receiver.speaking.on("start", onSpeak);
+        if (greetingPlayer !== undefined) {
+          void greetingPlayer.play(joined, target).catch((error: unknown) => {
+            logger.error({ err: error, channelId: target }, "Failed to play voice greeting");
+          });
+        }
         logger.info({ channelId: target }, "Hands-free wake-word listening in channel");
       } finally {
         reconciling = false;

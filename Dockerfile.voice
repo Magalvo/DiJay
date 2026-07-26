@@ -17,9 +17,10 @@ RUN npm run build:voice
 FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-# libgomp1 is required by the Vosk shared library.
+# libgomp1 is required by the Vosk shared library. ffmpeg lets @discordjs/voice play local
+# greeting clips such as mp3/wav through prism-media.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
+  && apt-get install -y --no-install-recommends ca-certificates ffmpeg libgomp1 \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --include=optional && npm cache clean --force
