@@ -415,7 +415,33 @@ async function main(): Promise<void> {
       }
     };
 
-    client.on(Events.VoiceStateUpdate, () => {
+    client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+      const activeConnection = connection;
+      const channelId = connectedChannelId;
+      const member = newState.member;
+      if (
+        activeConnection !== undefined &&
+        channelId !== undefined &&
+        newState.guild.id === guildId &&
+        member !== null &&
+        !member.user.bot &&
+        oldState.channelId !== newState.channelId &&
+        newState.channelId === channelId
+      ) {
+        void voiceAudioActions
+          .handleListenerMemberJoin({
+            channelId,
+            connection: activeConnection,
+            guildId,
+            userId: member.id,
+          })
+          .catch((error: unknown) => {
+            logger.error(
+              { err: error, channelId, userId: member.id },
+              "Failed to play voice listener member join audio action",
+            );
+          });
+      }
       void reconcile();
     });
     client.once(Events.ClientReady, () => {

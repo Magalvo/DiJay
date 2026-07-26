@@ -31,6 +31,11 @@ const voiceListenerJoinActionSchema = baseActionSchema.extend({
   trigger: z.literal("voice_listener_join"),
 });
 
+const voiceListenerMemberJoinActionSchema = baseActionSchema.extend({
+  target: z.literal("voice_listener"),
+  trigger: z.literal("voice_listener_member_join"),
+});
+
 const phraseMapSchema = z
   .object({
     en: z.array(z.string().trim().min(1)).optional(),
@@ -51,6 +56,7 @@ const voiceListenerSpokenPhraseActionSchema = baseActionSchema.extend({
 const actionSchema = z.discriminatedUnion("trigger", [
   mainBotVoiceMemberJoinActionSchema,
   voiceListenerJoinActionSchema,
+  voiceListenerMemberJoinActionSchema,
   voiceListenerSpokenPhraseActionSchema,
 ]);
 
@@ -59,15 +65,21 @@ const manifestSchema = z.object({
 });
 
 export type AudioActionTarget = "main_bot" | "voice_listener";
-export type AudioActionTrigger = "spoken_phrase" | "voice_listener_join" | "voice_member_join";
+export type AudioActionTrigger =
+  "spoken_phrase" | "voice_listener_join" | "voice_listener_member_join" | "voice_member_join";
 
 export type MainBotAudioActionDefinition = z.infer<typeof mainBotVoiceMemberJoinActionSchema>;
 export type VoiceListenerJoinAudioActionDefinition = z.infer<typeof voiceListenerJoinActionSchema>;
+export type VoiceListenerMemberJoinAudioActionDefinition = z.infer<
+  typeof voiceListenerMemberJoinActionSchema
+>;
 export type VoiceListenerSpokenPhraseAudioActionDefinition = z.infer<
   typeof voiceListenerSpokenPhraseActionSchema
 >;
 export type VoiceListenerAudioActionDefinition =
-  VoiceListenerJoinAudioActionDefinition | VoiceListenerSpokenPhraseAudioActionDefinition;
+  | VoiceListenerJoinAudioActionDefinition
+  | VoiceListenerMemberJoinAudioActionDefinition
+  | VoiceListenerSpokenPhraseAudioActionDefinition;
 export type AudioActionDefinition = z.infer<typeof actionSchema>;
 
 export interface AudioActionManifest {
