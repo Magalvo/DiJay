@@ -1,0 +1,40 @@
+# Overlay that runs the spotify-tokener sidecar (WI-017) next to Lavalink, so Spotify
+# metadata resolves via an anonymous token instead of LavaSrc's Client Credentials flow
+# (which now requires the credentials-owning account to have an active Premium
+# subscription). Point lavalink/application.yml's customTokenEndpoint at it (already done)
+# and leave SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET out of .env entirely.
+#
+#   docker compose -f compose.yml -f compose.spotify-tokener.yml up -d --build
+#
+# Unofficial: outside Spotify's Terms of Service, and breaks if Spotify changes its
+# web-player token schema (upstream spotify-tokener would need updating). No personal
+# Spotify account or cookie is used - the token is fully anonymous. See
+# docs/canonical/operations.md for the accepted trade-off.
+#
+# Runs a persistent headless Chrome to fetch tokens (chromedp/headless-shell base image),
+# heavier than this project's other sidecars. mem_limit below is a starting point - verify
+# against actual usage (`docker stats`) on the VPS and adjust.
+services:
+  spotify-tokener:
+    image: ghcr.io/topi314/spotify-tokener:master
+    restart: unless-stopped
+    environment:
+      SPOTIFY_TOKENER_LOG_LEVEL: info
+    healthcheck:
+      # The image (chromedp/headless-shell, debian:trixie-slim) has no nc/curl - only
+      # socat - confirmed from its own build. A plain port check, not /api/token itself:
+      # hitting the token endpoint would trigger a real Chrome navigation to Spotify on
+      # every check interval for no operational benefit over a TCP check.
+      test: ["CMD", "socat", "-u", "OPEN:/dev/null", "TCP4:127.0.0.1:8080"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - dijay-private

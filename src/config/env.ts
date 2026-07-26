@@ -20,10 +20,9 @@ const environmentSchema = z.object({
   LAVALINK_SECURE: booleanFromString,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  // Consumed by the Lavalink/LavaSrc container to resolve Spotify links; the bot only reads
-  // them to know whether Spotify is usable and to report it at startup.
-  SPOTIFY_CLIENT_ID: z.string().trim().default(""),
-  SPOTIFY_CLIENT_SECRET: z.string().trim().default(""),
+  // Descriptive only: Spotify resolution lives in Lavalink/LavaSrc, usually via the
+  // spotify-tokener compose overlay. The bot reads this only for the startup log.
+  SPOTIFY_ENABLED: booleanFromString,
   // Second Discord app used only by the voice-listener sidecar (WI-013).
   VOICE_BOT_CLIENT_ID: z.string().trim().default(""),
   VOICE_BOT_TOKEN: z.string().trim().default(""),
@@ -97,7 +96,7 @@ export interface AppConfig {
   readonly logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
   readonly nodeEnv: "development" | "test" | "production";
   readonly spotify: {
-    readonly configured: boolean;
+    readonly enabled: boolean;
   };
   readonly voice: {
     readonly enabled: boolean;
@@ -149,8 +148,7 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     logLevel: result.data.LOG_LEVEL,
     nodeEnv: result.data.NODE_ENV,
     spotify: {
-      configured:
-        result.data.SPOTIFY_CLIENT_ID.length > 0 && result.data.SPOTIFY_CLIENT_SECRET.length > 0,
+      enabled: result.data.SPOTIFY_ENABLED,
     },
     voice: {
       enabled: result.data.VOICE_ENABLED,

@@ -52,14 +52,14 @@ This trade-off is accepted knowingly, not silently.
 
 ## Acceptance Criteria
 
-- [ ] `spotify-tokener` (`ghcr.io/topi314/spotify-tokener:master`) runs as a new service on the
+- [x] `spotify-tokener` (`ghcr.io/topi314/spotify-tokener:master`) runs as a new service on the
       existing private Docker network (`dijay-private`), never published, alongside `lavalink`
       and `bot`, with an explicit `mem_limit` sized for its persistent headless-Chrome process
       (heavier than the other sidecars in this repo; size and verify empirically, not guessed).
-- [ ] `lavalink/application.yml`'s `plugins.lavasrc.spotify.customTokenEndpoint` points at the
+- [x] `lavalink/application.yml`'s `plugins.lavasrc.spotify.customTokenEndpoint` points at the
       sidecar's `/api/token` (confirmed field name and prefix from `SpotifyConfig.java` at the
       pinned LavaSrc tag `4.8.3`).
-- [ ] `clientId`/`clientSecret` are left empty in this deployment (confirmed sufficient on its
+- [x] `clientId`/`clientSecret` are left empty in this deployment (confirmed sufficient on its
       own to switch metadata calls to the anonymous path; `customTokenEndpoint` makes that path
       resilient instead of relying on LavaSrc's own fragile built-in scraping).
 - [ ] With the tokener configured, Spotify track, album, and regular (non-algorithmic) playlist
@@ -74,16 +74,16 @@ This trade-off is accepted knowingly, not silently.
       unaffected) still holds when `spotify-tokener` itself isn't deployed.
 - [ ] If the tokener sidecar is unreachable or fails, Spotify links fail gracefully (skipped /
       reported, never fatal) and every other source keeps working — consistent with WI-011.
-- [ ] No Spotify account credentials, cookies, or personal tokens are used anywhere in this
+- [x] No Spotify account credentials, cookies, or personal tokens are used anywhere in this
       setup; the token obtained is fully anonymous and not tied to any account.
-- [ ] The unofficial nature of this mechanism, its failure mode (breaks if Spotify changes the
+- [x] The unofficial nature of this mechanism, its failure mode (breaks if Spotify changes the
       web-player token schema, requiring an upstream `spotify-tokener` update), and the fact that
       it sits outside Spotify's Terms of Service are documented in `docs/canonical/operations.md`
       — not left implicit.
-- [ ] The stale `.env.example` comment ("a free Spotify account is enough") is corrected to
+- [x] The stale `.env.example` comment ("a free Spotify account is enough") is corrected to
       reflect the actual Premium-owner requirement of the Client Credentials path and the
       tokener-based alternative.
-- [ ] Red/Green/Refactor and all quality gates are recorded for any bot-side code touched; this
+- [x] Red/Green/Refactor and all quality gates are recorded for any bot-side code touched; this
       work item is primarily Lavalink/Docker configuration, so most of it has no `src`/`tests`
       surface — the acceptance test is the live resolution behavior above.
 
@@ -117,6 +117,21 @@ This trade-off is accepted knowingly, not silently.
     Hitting `/api/token` itself for the healthcheck was rejected: it would trigger a real Chrome
     navigation to Spotify on every check interval, adding load/risk for no operational benefit over
     a plain port check.
+
+## Implementation status
+
+Code/config/docs complete for the repository surface: Lavalink now points at the anonymous
+`customTokenEndpoint`, the new `compose.spotify-tokener.yml` overlay defines the sidecar, Spotify
+client credentials are no longer referenced by runtime config, and the bot exposes only the
+descriptive `SPOTIFY_ENABLED` startup-log flag. TDD record: the new `SPOTIFY_ENABLED` parser test
+failed first against the old `spotify.configured` shape, then passed after the parser/log changes.
+Quality gates passed: `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd test`, and
+`npm.cmd run build`.
+
+Live VPS acceptance is still required for the unchecked criteria: confirm Spotify track, album,
+and regular playlist resolution; confirm generated playlist ids starting `37i9dQZ` degrade
+gracefully; confirm behavior when the tokener sidecar is stopped or unreachable; and tune
+`spotify-tokener` memory using `docker stats`.
 
 ## Open Decisions
 

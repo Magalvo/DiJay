@@ -39,9 +39,9 @@ export async function startBot(config: AppConfig): Promise<void> {
       : undefined,
   );
   logger.info(
-    { spotify: config.spotify.configured },
-    config.spotify.configured
-      ? "Spotify links enabled (resolved via Lavalink/LavaSrc)"
+    { spotify: config.spotify.enabled },
+    config.spotify.enabled
+      ? "Spotify links enabled (anonymous token via spotify-tokener)"
       : "Spotify not configured; Spotify links will not resolve",
   );
   const health = new HealthState();

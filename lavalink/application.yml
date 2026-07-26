@@ -57,10 +57,11 @@ plugins:
       flowerytts: false
       youtube: false
     spotify:
-      # Credentials are resolved from the Lavalink container environment. When they are
-      # empty, LavaSrc simply cannot resolve Spotify links and other sources keep working.
-      clientId: "${SPOTIFY_CLIENT_ID:}"
-      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      # Anonymous token from the spotify-tokener sidecar (WI-017), used for every metadata call.
+      # This replaces the Client Credentials flow, which now requires the credentials-owning
+      # account to hold an active Premium subscription (see WI-017 for how this was confirmed).
+      # Unofficial / outside Spotify's Terms of Service - see docs/canonical/operations.md.
+      customTokenEndpoint: "http://spotify-tokener:8080/api/token"
       countryCode: "${SPOTIFY_COUNTRY_CODE:PT}"
       playlistLoadLimit: 6
       albumLoadLimit: 6
