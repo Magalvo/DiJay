@@ -21,8 +21,15 @@ import {
 import pino from "pino";
 
 import { parseEnv } from "../config/env.js";
-import { matchSoundboardTrigger, voiceGrammar } from "../domain/voice/voice-command.js";
-import { forwardVoiceCommand } from "../infrastructure/ipc/voice-command-client.js";
+import {
+  matchSoundboardTrigger,
+  type VoiceLanguage,
+  voiceGrammar,
+} from "../domain/voice/voice-command.js";
+import {
+  fetchVoiceLanguage,
+  forwardVoiceCommand,
+} from "../infrastructure/ipc/voice-command-client.js";
 import {
   type CaptureResult,
   DiscordVoiceListener,
@@ -35,6 +42,9 @@ const READY_TIMEOUT_MS = 10_000;
 // Per-user gap after a capture before the same speaker can trigger another, so one utterance
 // is not processed twice.
 const WAKE_COOLDOWN_MS = 1_500;
+// How often the listener asks the main bot for the configured voice language (WI-016), so a
+// change made via /settings takes effect within one interval without a restart.
+const LANGUAGE_POLL_MS = 15_000;
 
 /**
  * Entry point for the voice-listener sidecar (WI-013 / WI-014). Runs as a second Discord bot
@@ -54,8 +64,55 @@ async function main(): Promise<void> {
     throw new Error("VOICE_IPC_SECRET is required for the voice listener");
   }
 
-  const stt = new VoskSpeechToText(config.voice.modelPath, voiceGrammar(config.voice.language));
-  const listener = new DiscordVoiceListener(stt);
+  // The active recognition language and its Vosk model can change at runtime (WI-016). Both
+  // per-language model paths must exist on disk to switch; the initial language uses the model
+  // guaranteed by env (VOICE_STT_MODEL_PATH maps to VOICE_LANGUAGE).
+  const modelPaths = config.voice.modelPaths;
+  const loadStt = (language: VoiceLanguage): VoskSpeechToText => {
+    const path = modelPaths[language];
+    if (path === null) {
+      throw new Error(`No Vosk model path configured for language "${language}"`);
+    }
+    return new VoskSpeechToText(path, voiceGrammar(language));
+  };
+
+  let activeLanguage: VoiceLanguage = config.voice.language;
+  let activeStt = loadStt(activeLanguage);
+  const listener = new DiscordVoiceListener(activeStt);
+
+  const switchLanguage = (language: VoiceLanguage): void => {
+    if (language === activeLanguage) {
+      return;
+    }
+    if (modelPaths[language] === null) {
+      logger.warn({ language }, "Voice language change ignored: no model configured for it");
+      return;
+    }
+    let next: VoskSpeechToText;
+    try {
+      next = loadStt(language);
+    } catch (error) {
+      logger.error({ err: error, language }, "Could not load voice model for language switch");
+      return;
+    }
+    const previous = activeStt;
+    activeStt = next;
+    activeLanguage = language;
+    listener.useSpeechToText(next);
+    // Defer freeing the old native model so any in-flight capture finishes on it first.
+    setTimeout(() => previous.close(), MAX_CAPTURE_MS + 2_000).unref();
+    logger.info({ language }, "Voice recognition model switched");
+  };
+
+  const ipcConfig = { secret: config.voiceIpc.secret, url: config.voiceIpc.url };
+  const pollLanguage = async (): Promise<void> => {
+    try {
+      switchLanguage(await fetchVoiceLanguage(ipcConfig, config.discord.guildId));
+    } catch (error) {
+      logger.debug({ err: error }, "Voice language poll failed");
+    }
+  };
+
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
@@ -133,22 +190,20 @@ async function main(): Promise<void> {
       return;
     }
 
-    const transcript = await resolveTranscript(result, config.voice.language, false);
+    const transcript = await resolveTranscript(result, activeLanguage, false);
     if (transcript === null) {
       await interaction.editReply(`🎙️ "${result.transcript}"\n🤷 Não percebi o comando.`);
       return;
     }
 
     try {
-      const outcome = await forwardVoiceCommand(
-        { secret: config.voiceIpc.secret, url: config.voiceIpc.url },
-        {
-          guildId: interaction.guildId,
-          textChannelId: interaction.channelId,
-          transcript,
-          userId: interaction.user.id,
-        },
-      );
+      const outcome = await forwardVoiceCommand(ipcConfig, {
+        guildId: interaction.guildId,
+        language: activeLanguage,
+        textChannelId: interaction.channelId,
+        transcript,
+        userId: interaction.user.id,
+      });
       await interaction.editReply(`🎙️ "${transcript}"\n${outcome.message}`);
     } catch (error) {
       logger.error({ err: error, guildId: interaction.guildId }, "Voice command forward failed");
@@ -228,20 +283,23 @@ async function main(): Promise<void> {
           // Soundboard triggers (WI-015) are self-contained: hearing the word fires the sound
           // with no wake word, handled locally so it overlays the music via Discord's native
           // soundboard. Unconfigured triggers fall through to normal command handling.
-          const soundKey = matchSoundboardTrigger(result.transcript, config.voice.language);
+          const soundKey = matchSoundboardTrigger(result.transcript, activeLanguage);
           const soundId = soundKey === null ? undefined : config.voice.soundboardSounds[soundKey];
           if (soundId !== undefined) {
             await playSoundboard(soundId, channelId);
             return;
           }
-          const transcript = await resolveTranscript(result, config.voice.language, true);
+          const transcript = await resolveTranscript(result, activeLanguage, true);
           if (transcript === null) {
             return;
           }
-          const outcome = await forwardVoiceCommand(
-            { secret: config.voiceIpc.secret, url: config.voiceIpc.url },
-            { guildId, textChannelId: channelId, transcript, userId },
-          );
+          const outcome = await forwardVoiceCommand(ipcConfig, {
+            guildId,
+            language: activeLanguage,
+            textChannelId: channelId,
+            transcript,
+            userId,
+          });
           logger.info({ message: outcome.message, transcript }, "Wake command executed");
         })
         .catch((error: unknown) => {
@@ -308,9 +366,16 @@ async function main(): Promise<void> {
 
   const wakeWord = config.voice.wakeWordEnabled ? setupWakeWordListening() : undefined;
 
+  // Follow the language configured via /settings: poll now and on an interval, reloading the
+  // model when it changes. Best-effort — a failed poll keeps the current language.
+  void pollLanguage();
+  const languagePoll = setInterval(() => void pollLanguage(), LANGUAGE_POLL_MS);
+  languagePoll.unref();
+
   const shutdown = async (): Promise<void> => {
+    clearInterval(languagePoll);
     wakeWord?.dispose();
-    stt.close();
+    activeStt.close();
     await client.destroy();
   };
   for (const signal of ["SIGINT", "SIGTERM"] as const) {

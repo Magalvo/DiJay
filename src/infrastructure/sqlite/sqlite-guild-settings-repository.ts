@@ -13,6 +13,7 @@ interface SettingsRow {
   default_volume: number;
   guild_id: string;
   idle_timeout_seconds: number;
+  voice_language: string;
 }
 
 export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
@@ -25,7 +26,7 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
     this.ensure(guildId);
     const row = this.database
       .prepare(
-        `SELECT guild_id, default_volume, idle_timeout_seconds, announcements_enabled
+        `SELECT guild_id, default_volume, idle_timeout_seconds, announcements_enabled, voice_language
          FROM guild_settings WHERE guild_id = ?`,
       )
       .get(guildId) as unknown as SettingsRow;
@@ -37,13 +38,15 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
     this.database
       .prepare(
         `UPDATE guild_settings
-         SET default_volume = ?, idle_timeout_seconds = ?, announcements_enabled = ?, updated_at = ?
+         SET default_volume = ?, idle_timeout_seconds = ?, announcements_enabled = ?,
+             voice_language = ?, updated_at = ?
          WHERE guild_id = ?`,
       )
       .run(
         update.defaultVolume ?? current.defaultVolume,
         update.idleTimeoutSeconds ?? current.idleTimeoutSeconds,
         (update.announcementsEnabled ?? current.announcementsEnabled) ? 1 : 0,
+        update.voiceLanguage ?? current.voiceLanguage,
         new Date().toISOString(),
         guildId,
       );
@@ -72,6 +75,7 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
       defaultVolume: row.default_volume,
       guildId: row.guild_id,
       idleTimeoutSeconds: row.idle_timeout_seconds,
+      voiceLanguage: row.voice_language === "en" ? "en" : "pt",
     };
   }
 }

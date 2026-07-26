@@ -37,6 +37,14 @@ const migrations = [
       );
     `,
   },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE guild_settings
+        ADD COLUMN voice_language TEXT NOT NULL DEFAULT 'pt'
+        CHECK(voice_language IN ('pt', 'en'));
+    `,
+  },
 ] as const;
 
 export function openAppDatabase(path: string): DatabaseSync {

@@ -23,8 +23,12 @@ export class VoiceCommandService {
     private readonly language: VoiceLanguage = "pt",
   ) {}
 
-  public async handle(transcript: string, request: PlaybackRequest): Promise<VoiceCommandOutcome> {
-    const intent = parseVoiceCommand(transcript, this.language);
+  public async handle(
+    transcript: string,
+    request: PlaybackRequest,
+    language: VoiceLanguage = this.language,
+  ): Promise<VoiceCommandOutcome> {
+    const intent = parseVoiceCommand(transcript, language);
     switch (intent.kind) {
       case "pause":
         await this.music.pause(request);

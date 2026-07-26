@@ -44,7 +44,15 @@ export interface CaptureResult {
  * push-to-talk window.
  */
 export class DiscordVoiceListener {
-  public constructor(private readonly stt: SpeechToText) {}
+  public constructor(private stt: SpeechToText) {}
+
+  /**
+   * Swaps the speech-to-text engine (used by the runtime PT/EN toggle, WI-016). Captures that
+   * are already in flight keep the previous engine; the next capture uses the new one.
+   */
+  public useSpeechToText(stt: SpeechToText): void {
+    this.stt = stt;
+  }
 
   public async capture(request: VoiceCaptureRequest): Promise<CaptureResult> {
     const connection = joinVoiceChannel({

@@ -150,9 +150,14 @@ unmuted (the sidecar joins unmuted for this). Same-server sounds need no "Use Ex
 Get the sound id from the Discord API (the soundboard is not surfaced in the client UI id copy).
 Leave empty to disable.
 
-Switch language by changing `VOICE_LANGUAGE` and `VOICE_STT_MODEL_PATH` to the matching model,
-then recreate the listener (`... up -d --build voice-listener`). A relative model path works in
-Docker (it resolves under `/app` via the `./models` mount) and locally.
+Language toggle (WI-016): switch PT/EN at runtime with `/settings voice-language` — no restart.
+The choice is stored per guild; the listener polls the main bot and reloads the model within a
+few seconds. For this to work, download BOTH models into `./models` and set both
+`VOICE_STT_MODEL_PATH_PT` and `VOICE_STT_MODEL_PATH_EN` in `.env`; with only one model, the
+toggle to the missing language is a logged no-op. `VOICE_LANGUAGE` remains the initial language
+at boot. A relative model path works in Docker (it resolves under `/app` via the `./models`
+mount) and locally. (The main bot's in-process `/listen`, if used instead of the sidecar, still
+follows `VOICE_LANGUAGE` and needs a restart to change.)
 
 Privacy and limits: nothing is persisted and no transcript is logged. Hands-free mode
 transcribes channel speech continuously in the listener process — a deliberate CPU/privacy

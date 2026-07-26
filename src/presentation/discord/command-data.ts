@@ -104,6 +104,18 @@ export const commandData = [
         .addBooleanOption((option) =>
           option.setName("enabled").setDescription("Publicar anúncios").setRequired(true),
         ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("voice-language")
+        .setDescription("Escolhe o idioma do reconhecimento de voz.")
+        .addStringOption((option) =>
+          option
+            .setName("language")
+            .setDescription("Idioma do modelo de voz")
+            .setRequired(true)
+            .addChoices({ name: "Português", value: "pt" }, { name: "English", value: "en" }),
+        ),
     ),
   new SlashCommandBuilder()
     .setName("playlist")

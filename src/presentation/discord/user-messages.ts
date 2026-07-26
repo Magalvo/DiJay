@@ -7,6 +7,7 @@ export const musicErrorMessages: Record<MusicError["code"], string> = {
   INVALID_QUERY: "Indica uma pesquisa ou URL válida.",
   INVALID_QUEUE_POSITION: "Essa posição não existe.",
   INVALID_SEEK: "Essa posição não pertence à faixa atual.",
+  INVALID_VOICE_LANGUAGE: "O idioma de voz deve ser 'pt' ou 'en'.",
   INVALID_VOLUME: "O volume deve estar entre 0 e 150.",
   LIVE_STREAM_NOT_SEEKABLE: "Não é possível procurar uma posição numa emissão em direto.",
   NOTHING_PLAYING: "Não há música em reprodução neste servidor.",
