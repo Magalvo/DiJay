@@ -310,17 +310,6 @@ async function main(): Promise<void> {
         .captureUtterance(receiver, userId, MAX_CAPTURE_MS)
         .then(async (result) => {
           cooldownUntil.set(userId, Date.now() + WAKE_COOLDOWN_MS);
-          // Surface what Vosk heard so the wake word and commands can be calibrated; drop
-          // utterances that do not begin with the wake word.
-          if (result.transcript.trim().length > 0) {
-            logger.info({ transcript: result.transcript }, "Wake listener heard");
-            // TEMP (WI-015 calibration): the small PT Vosk model has no "gelado" in its
-            // vocabulary, so neither the grammar nor open vocab can output it. Log the
-            // open-vocab transcription to learn which in-vocabulary token(s) the model produces
-            // for a spoken "gelado", so the trigger can be mapped to those. Remove once
-            // calibrated.
-            logger.info({ open: await result.transcribeOpen() }, "Open-vocab transcript (diag)");
-          }
           if (
             await voiceAudioActions.handleSpokenPhrase({
               channelId,
