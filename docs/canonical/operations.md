@@ -183,16 +183,17 @@ private server.
 
 ## Audio actions
 
-Audio actions play short pre-recorded clips through the same Lavalink player as music. They do
-not create a second voice connection and do not overlay perfectly over the current track: for
-WI-018 the greeting clip is queued next when someone joins the same voice channel where DiJay is
-already active.
+Audio actions use `audio-actions/actions.json` as the shared manifest for short local clips.
+Main-bot actions play through Lavalink and are queued in the existing music player. DiJayMic
+actions play through the listener sidecar's current `@discordjs/voice` connection. Neither path
+joins voice only to play a clip.
 
 1. Create the host directory and add your clip:
 
    ```
    mkdir -p audio-actions
    cp greeting.mp3 audio-actions/greeting.mp3
+   cp gelado.mp3 audio-actions/gelado.mp3
    ```
 
 2. Create `audio-actions/actions.json`:
@@ -202,10 +203,26 @@ already active.
      "actions": [
        {
          "id": "voice_join_greeting",
+         "target": "main_bot",
          "trigger": "voice_member_join",
          "file": "greeting.mp3",
          "message": "Viva, sou o DJ do server. Se quiseres ouvir musica ou pausar, usa os comandos do canal de musica.",
          "cooldownSeconds": 86400
+       },
+       {
+         "id": "mic_greeting",
+         "target": "voice_listener",
+         "trigger": "voice_listener_join",
+         "file": "greeting.mp3",
+         "cooldownSeconds": 86400
+       },
+       {
+         "id": "gelado",
+         "target": "voice_listener",
+         "trigger": "spoken_phrase",
+         "phrases": { "pt": ["gelado"], "en": ["gelado"] },
+         "file": "gelado.mp3",
+         "cooldownSeconds": 10
        }
      ]
    }
@@ -220,17 +237,28 @@ already active.
    AUDIO_ACTIONS_BASE_URL=http://bot:3000/audio-actions
    ```
 
-4. Rebuild/recreate the bot:
+4. Rebuild/recreate the services that consume the manifest:
 
-   `docker compose -f compose.yml -f compose.spotify-tokener.yml -f compose.voice-listener.yml up -d --build --force-recreate bot`
+   `docker compose -f compose.yml -f compose.spotify-tokener.yml -f compose.voice-listener.yml up -d --build --force-recreate bot voice-listener`
 
 Only relative `.mp3`, `.ogg`, and `.wav` files are accepted in the manifest. If the manifest is
-invalid, the bot logs the error and disables audio actions without affecting music playback.
+invalid, the consuming process logs the error and disables manifest audio actions without
+affecting music playback, wake-word listening, soundboard triggers, or IPC.
 
-### DiJayMic greeting
+Notes:
 
-If the goal is for the automatically joining listener bot (DiJayMic) to speak when it enters the
-voice channel, enable the sidecar greeting instead of relying on Lavalink audio actions:
+- `voice_member_join` is for the main DiJay bot and only fires when DiJay already has an active
+  Lavalink player in that voice channel. The clip is queued next, not overlaid perfectly over the
+  music.
+- `voice_listener_join` is for DiJayMic when it auto-joins in hands-free mode.
+- `spoken_phrase` is for DiJayMic local clips. Matching uses normalized whole phrases/tokens, so
+  `gelado` does not fire on `congelado`.
+- New local DiJayMic clips should be added to the manifest, not to new env vars.
+
+### DiJayMic legacy greeting
+
+`VOICE_GREETING_*` still works as a temporary compatibility fallback when no
+`voice_listener_join` manifest action exists:
 
 ```
 VOICE_WAKE_WORD_ENABLED=true
@@ -239,9 +267,8 @@ VOICE_GREETING_FILE=/app/audio-actions/greeting.mp3
 VOICE_GREETING_COOLDOWN_SECONDS=86400
 ```
 
-The same `./audio-actions` host directory is mounted read-only into the voice-listener sidecar.
-The greeting plays through DiJayMic's existing voice connection after it joins for hands-free
-listening, and failures are logged without stopping recognition.
+Prefer the manifest for new deployments because it also feeds the Vosk grammar and keeps clips in
+one place.
 
 ## Update and rollback
 

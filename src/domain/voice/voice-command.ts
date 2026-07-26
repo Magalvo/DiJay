@@ -163,8 +163,23 @@ const EN: VoiceVocabulary = {
 const VOCABULARIES: Readonly<Record<VoiceLanguage, VoiceVocabulary>> = { en: EN, pt: PT };
 
 /** Words handed to the recognizer as a constrained grammar for the given language. */
-export function voiceGrammar(language: VoiceLanguage): readonly string[] {
-  return VOCABULARIES[language].grammar;
+export function voiceGrammar(
+  language: VoiceLanguage,
+  extraPhrases: readonly string[] = [],
+): readonly string[] {
+  if (extraPhrases.length === 0) {
+    return VOCABULARIES[language].grammar;
+  }
+
+  const words = new Set(VOCABULARIES[language].grammar.filter((word) => word !== "[unk]"));
+  for (const phrase of extraPhrases) {
+    for (const word of normalizeTranscript(phrase).split(" ")) {
+      if (word.length > 0 && word !== "unk") {
+        words.add(word);
+      }
+    }
+  }
+  return [...words, "[unk]"];
 }
 
 /**
