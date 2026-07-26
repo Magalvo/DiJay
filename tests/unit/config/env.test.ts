@@ -107,6 +107,33 @@ describe("parseEnv", () => {
     });
   });
 
+  it("disables audio actions by default and parses their file-serving config", () => {
+    expect(parseEnv(validEnv)).toMatchObject({
+      audioActions: {
+        baseUrl: "http://bot:3000/audio-actions",
+        dir: "./audio-actions",
+        enabled: false,
+        manifest: "./audio-actions/actions.json",
+      },
+    });
+    expect(
+      parseEnv({
+        ...validEnv,
+        AUDIO_ACTIONS_BASE_URL: "http://bot:3000/clips",
+        AUDIO_ACTIONS_DIR: "/app/clips",
+        AUDIO_ACTIONS_ENABLED: "true",
+        AUDIO_ACTIONS_MANIFEST: "/app/clips/actions.json",
+      }),
+    ).toMatchObject({
+      audioActions: {
+        baseUrl: "http://bot:3000/clips",
+        dir: "/app/clips",
+        enabled: true,
+        manifest: "/app/clips/actions.json",
+      },
+    });
+  });
+
   it("exposes voice IPC and second-bot config, disabled without a shared secret", () => {
     expect(parseEnv(validEnv)).toMatchObject({
       voiceIpc: { enabled: false, port: 3100, secret: "", url: "http://bot:3100" },

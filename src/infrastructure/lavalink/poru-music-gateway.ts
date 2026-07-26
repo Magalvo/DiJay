@@ -5,6 +5,8 @@ import type {
   MusicGateway,
   PlaybackRequest,
   PlayRequest,
+  SystemPlaybackRequest,
+  SystemPlaybackResult,
   TrackSelection,
 } from "../../application/music/music-gateway.js";
 import type { GuildSettingsRepository } from "../../application/settings/guild-settings-repository.js";
@@ -70,6 +72,40 @@ export class PoruMusicGateway implements MusicGateway {
       queueSize: player.queue.size + (player.currentTrack === null ? 0 : 1),
       startedPlaying: created || startedPlaying,
     };
+  }
+
+  public async enqueueSystem(request: SystemPlaybackRequest): Promise<SystemPlaybackResult> {
+    const player = this.poru.get(request.guildId);
+    if (player === null) {
+      return this.systemResult(false, null, null);
+    }
+    if (player.voiceChannel !== request.targetVoiceChannelId) {
+      return this.systemResult(false, this.playerTextChannel(player), player.voiceChannel);
+    }
+
+    const response = await this.resolveWithPoru(request.query, request.requesterId);
+    const { tracks } = this.selectFromResponse(response);
+    if (tracks.length === 0) {
+      return this.systemResult(false, this.playerTextChannel(player), player.voiceChannel);
+    }
+
+    for (const track of tracks) {
+      track.info.requester = request.requesterId;
+    }
+
+    if (request.position === "queue") {
+      for (const track of tracks) {
+        player.queue.add(track);
+      }
+    } else {
+      player.queue.splice(0, 0, ...tracks);
+    }
+
+    if (!player.isPlaying && !player.isPaused) {
+      await player.play();
+    }
+
+    return this.systemResult(true, this.playerTextChannel(player), player.voiceChannel);
   }
 
   public async resolve(query: string, requesterId: string): Promise<readonly Track[]> {
@@ -225,6 +261,19 @@ export class PoruMusicGateway implements MusicGateway {
       queueSize: 0,
       startedPlaying: false,
     };
+  }
+
+  private systemResult(
+    enqueued: boolean,
+    textChannelId: string | null,
+    voiceChannelId: string | null,
+  ): SystemPlaybackResult {
+    return { enqueued, textChannelId, voiceChannelId };
+  }
+
+  private playerTextChannel(player: Player): string | null {
+    const textChannel = (player as { readonly textChannel?: unknown }).textChannel;
+    return typeof textChannel === "string" ? textChannel : null;
   }
 
   private getControlledPlayer(request: PlaybackRequest): Player | null {

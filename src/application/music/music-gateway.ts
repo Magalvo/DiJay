@@ -24,6 +24,20 @@ export interface EnqueueResult {
   readonly startedPlaying: boolean;
 }
 
+export interface SystemPlaybackRequest {
+  readonly guildId: string;
+  readonly position: QueuePlacement;
+  readonly query: string;
+  readonly requesterId: string;
+  readonly targetVoiceChannelId: string;
+}
+
+export interface SystemPlaybackResult {
+  readonly enqueued: boolean;
+  readonly textChannelId: string | null;
+  readonly voiceChannelId: string | null;
+}
+
 export interface TrackSelection {
   readonly playlistName: string | null;
   readonly tracks: readonly Track[];
@@ -32,6 +46,7 @@ export interface TrackSelection {
 export interface MusicGateway {
   clear(request: PlaybackRequest): Promise<number | null>;
   enqueue(request: PlayRequest): Promise<EnqueueResult>;
+  enqueueSystem(request: SystemPlaybackRequest): Promise<SystemPlaybackResult>;
   getState(guildId: string): Promise<PlaybackStateSnapshot | null>;
   pause(request: PlaybackRequest): Promise<boolean>;
   remove(request: PlaybackRequest & { readonly position: number }): Promise<Track | null>;

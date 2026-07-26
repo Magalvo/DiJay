@@ -6,6 +6,11 @@ import { Poru } from "poru";
 
 import { IdlePlayerManager } from "./application/music/idle-player-manager.js";
 import { MusicService } from "./application/music/music-service.js";
+import {
+  loadAudioActionManifest,
+  type AudioActionManifest,
+} from "./application/audio-actions/audio-action-manifest.js";
+import { AudioActionService } from "./application/audio-actions/audio-action-service.js";
 import { PlaylistService } from "./application/playlists/playlist-service.js";
 import { GuildAccessPolicy } from "./application/security/guild-access-policy.js";
 import { GuildSettingsService } from "./application/settings/guild-settings-service.js";
@@ -45,10 +50,25 @@ export async function startBot(config: AppConfig): Promise<void> {
       : "Spotify not configured; Spotify links will not resolve",
   );
   const health = new HealthState();
+  let audioActions: AudioActionService | undefined;
+  let audioActionManifest: AudioActionManifest | undefined;
+  let audioActionsDir: string | undefined;
+  if (config.audioActions.enabled) {
+    try {
+      audioActionManifest = await loadAudioActionManifest(config.audioActions.manifest);
+      audioActionsDir = config.audioActions.dir;
+    } catch (error) {
+      logger.error({ err: error }, "Audio actions disabled: invalid manifest");
+    }
+  }
   const database = openAppDatabase(join(config.dataDir, "dijay.sqlite"));
   let healthServer;
   try {
-    healthServer = await startHealthServer(config.healthPort, health);
+    healthServer = await startHealthServer(
+      config.healthPort,
+      health,
+      audioActionsDir === undefined ? {} : { audioActionsDir },
+    );
   } catch (error) {
     database.close();
     throw error;
@@ -90,6 +110,30 @@ export async function startBot(config: AppConfig): Promise<void> {
   const music = new MusicService(new PoruMusicGateway(poru, settingsRepository));
   const playlists = new PlaylistService(playlistRepository, music);
   const livePanel = new LivePanelManager(client, music, logger);
+
+  if (audioActionManifest !== undefined) {
+    audioActions = new AudioActionService({
+      actions: audioActionManifest.actions,
+      baseUrl: config.audioActions.baseUrl,
+      music,
+      sendMessage: async (channelId, message) => {
+        const channel = await client.channels.fetch(channelId);
+        if (
+          channel?.type === ChannelType.GuildText &&
+          client.user !== null &&
+          channel
+            .permissionsFor(client.user)
+            ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
+        ) {
+          await channel.send(message);
+        }
+      },
+    });
+    logger.info(
+      { actions: audioActionManifest.actions.length, dir: config.audioActions.dir },
+      "Audio actions enabled",
+    );
+  }
 
   let voiceFeature: VoiceFeature | undefined;
   if (config.voice.enabled) {
@@ -191,6 +235,27 @@ export async function startBot(config: AppConfig): Promise<void> {
         logger.warn({ error, guildId: guild.id }, "Could not leave unauthorized guild");
       });
     }
+  });
+
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    if (
+      audioActions === undefined ||
+      newState.member?.user.bot === true ||
+      !accessPolicy.isAllowed(newState.guild.id) ||
+      newState.channelId === null ||
+      newState.channelId === oldState.channelId
+    ) {
+      return;
+    }
+    void audioActions
+      .handleVoiceMemberJoin({
+        guildId: newState.guild.id,
+        userId: newState.id,
+        voiceChannelId: newState.channelId,
+      })
+      .catch((error: unknown) => {
+        logger.warn({ error, guildId: newState.guild.id }, "Audio action failed");
+      });
   });
 
   client.on(Events.InteractionCreate, (interaction) => {

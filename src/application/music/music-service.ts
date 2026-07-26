@@ -10,6 +10,8 @@ import type {
   MusicGateway,
   PlaybackRequest,
   PlayRequest,
+  SystemPlaybackRequest,
+  SystemPlaybackResult,
   TrackSelection,
 } from "./music-gateway.js";
 
@@ -28,6 +30,10 @@ export class MusicService {
     }
 
     return result;
+  }
+
+  public playSystemAudioAction(request: SystemPlaybackRequest): Promise<SystemPlaybackResult> {
+    return this.gateway.enqueueSystem({ ...request, query: this.validQuery(request.query) });
   }
 
   public async resolve(query: string, requesterId: string): Promise<readonly Track[]> {

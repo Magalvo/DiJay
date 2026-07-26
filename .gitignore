@@ -2,6 +2,7 @@
 coverage/
 dist/
 data/
+/audio-actions/
 logs/
 models/
 node_modules/

@@ -181,6 +181,52 @@ transcribes channel speech continuously in the listener process — a deliberate
 trade-off, off by default. Discord voice receive is officially unsupported; acceptable for a
 private server.
 
+## Audio actions
+
+Audio actions play short pre-recorded clips through the same Lavalink player as music. They do
+not create a second voice connection and do not overlay perfectly over the current track: for
+WI-018 the greeting clip is queued next when someone joins the same voice channel where DiJay is
+already active.
+
+1. Create the host directory and add your clip:
+
+   ```
+   mkdir -p audio-actions
+   cp greeting.mp3 audio-actions/greeting.mp3
+   ```
+
+2. Create `audio-actions/actions.json`:
+
+   ```json
+   {
+     "actions": [
+       {
+         "id": "voice_join_greeting",
+         "trigger": "voice_member_join",
+         "file": "greeting.mp3",
+         "message": "Viva, sou o DJ do server. Se quiseres ouvir musica ou pausar, usa os comandos do canal de musica.",
+         "cooldownSeconds": 86400
+       }
+     ]
+   }
+   ```
+
+3. Enable it in `.env`:
+
+   ```
+   AUDIO_ACTIONS_ENABLED=true
+   AUDIO_ACTIONS_DIR=/app/audio-actions
+   AUDIO_ACTIONS_MANIFEST=/app/audio-actions/actions.json
+   AUDIO_ACTIONS_BASE_URL=http://bot:3000/audio-actions
+   ```
+
+4. Rebuild/recreate the bot:
+
+   `docker compose -f compose.yml -f compose.spotify-tokener.yml -f compose.voice-listener.yml up -d --build --force-recreate bot`
+
+Only relative `.mp3`, `.ogg`, and `.wav` files are accepted in the manifest. If the manifest is
+invalid, the bot logs the error and disables audio actions without affecting music playback.
+
 ## Update and rollback
 
 - Before updating, create a backup and record the current Git revision.
