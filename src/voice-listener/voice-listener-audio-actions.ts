@@ -5,10 +5,7 @@ import type {
   VoiceListenerAudioActionDefinition,
   VoiceListenerSpokenPhraseAudioActionDefinition,
 } from "../application/audio-actions/audio-action-manifest.js";
-import {
-  normalizeTranscript,
-  type VoiceLanguage,
-} from "../domain/voice/voice-command.js";
+import { normalizeTranscript, type VoiceLanguage } from "../domain/voice/voice-command.js";
 import type { VoiceClipPlayer } from "./voice-clip-player.js";
 
 export interface LegacyVoiceGreetingConfig {

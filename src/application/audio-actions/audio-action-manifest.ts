@@ -67,8 +67,7 @@ export type VoiceListenerSpokenPhraseAudioActionDefinition = z.infer<
   typeof voiceListenerSpokenPhraseActionSchema
 >;
 export type VoiceListenerAudioActionDefinition =
-  | VoiceListenerJoinAudioActionDefinition
-  | VoiceListenerSpokenPhraseAudioActionDefinition;
+  VoiceListenerJoinAudioActionDefinition | VoiceListenerSpokenPhraseAudioActionDefinition;
 export type AudioActionDefinition = z.infer<typeof actionSchema>;
 
 export interface AudioActionManifest {

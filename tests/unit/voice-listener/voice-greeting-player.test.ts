@@ -13,7 +13,12 @@ describe("VoiceClipPlayer", () => {
     });
     const connection = {};
 
-    const played = await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60);
+    const played = await player.play(
+      connection,
+      "cooldown-key",
+      "/app/audio-actions/greeting.mp3",
+      60,
+    );
 
     expect(played).toBe(true);
     expect(play).toHaveBeenCalledWith({ file: "/app/audio-actions/greeting.mp3" });
@@ -30,11 +35,17 @@ describe("VoiceClipPlayer", () => {
     });
     const connection = {};
 
-    expect(await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60)).toBe(true);
+    expect(
+      await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60),
+    ).toBe(true);
     now += 30_000;
-    expect(await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60)).toBe(false);
+    expect(
+      await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60),
+    ).toBe(false);
     now += 31_000;
-    expect(await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60)).toBe(true);
+    expect(
+      await player.play(connection, "cooldown-key", "/app/audio-actions/greeting.mp3", 60),
+    ).toBe(true);
     expect(play).toHaveBeenCalledTimes(2);
   });
 
