@@ -27,6 +27,7 @@ services:
       bot:
         condition: service_healthy
     volumes:
+      - ./audio-actions:/app/audio-actions:ro
       - ./models:/app/models:ro
     mem_limit: 512m
     logging:

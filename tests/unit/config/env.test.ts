@@ -134,6 +134,34 @@ describe("parseEnv", () => {
     });
   });
 
+  it("disables voice-listener greetings by default and parses their clip config", () => {
+    expect(parseEnv(validEnv)).toMatchObject({
+      voice: {
+        greeting: {
+          cooldownSeconds: 86_400,
+          enabled: false,
+          file: "",
+        },
+      },
+    });
+    expect(
+      parseEnv({
+        ...validEnv,
+        VOICE_GREETING_COOLDOWN_SECONDS: "120",
+        VOICE_GREETING_ENABLED: "true",
+        VOICE_GREETING_FILE: "/app/audio-actions/greeting.mp3",
+      }),
+    ).toMatchObject({
+      voice: {
+        greeting: {
+          cooldownSeconds: 120,
+          enabled: true,
+          file: "/app/audio-actions/greeting.mp3",
+        },
+      },
+    });
+  });
+
   it("exposes voice IPC and second-bot config, disabled without a shared secret", () => {
     expect(parseEnv(validEnv)).toMatchObject({
       voiceIpc: { enabled: false, port: 3100, secret: "", url: "http://bot:3100" },

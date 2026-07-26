@@ -31,6 +31,14 @@ const environmentSchema = z.object({
   VOICE_BOT_CLIENT_ID: z.string().trim().default(""),
   VOICE_BOT_TOKEN: z.string().trim().default(""),
   VOICE_ENABLED: booleanFromString,
+  VOICE_GREETING_COOLDOWN_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(86_400 * 365)
+    .default(86_400),
+  VOICE_GREETING_ENABLED: booleanFromString,
+  VOICE_GREETING_FILE: z.string().trim().default(""),
   // Language of the spoken-command grammar and parser (Vosk model must match).
   VOICE_LANGUAGE: z.enum(["pt", "en"]).default("pt"),
   // Hands-free mode on the listener sidecar (WI-014): stay in the channel and act on any
@@ -110,6 +118,11 @@ export interface AppConfig {
   };
   readonly voice: {
     readonly enabled: boolean;
+    readonly greeting: {
+      readonly cooldownSeconds: number;
+      readonly enabled: boolean;
+      readonly file: string;
+    };
     readonly language: "pt" | "en";
     readonly modelPath: string;
     /** Per-language model paths for the runtime PT/EN toggle; null when that model is absent. */
@@ -168,6 +181,11 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     voice: {
       enabled: result.data.VOICE_ENABLED,
+      greeting: {
+        cooldownSeconds: result.data.VOICE_GREETING_COOLDOWN_SECONDS,
+        enabled: result.data.VOICE_GREETING_ENABLED,
+        file: result.data.VOICE_GREETING_FILE,
+      },
       language: result.data.VOICE_LANGUAGE,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
       modelPaths: {
