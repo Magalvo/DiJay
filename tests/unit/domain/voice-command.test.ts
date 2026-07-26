@@ -103,6 +103,13 @@ describe("voiceGrammar", () => {
       expect(voiceGrammar("en")).toContain(trigger);
     }
   });
+
+  it("includes extra manifest words in the constrained grammar", () => {
+    expect(voiceGrammar("pt", ["bora", "gelado especial"])).toEqual(
+      expect.arrayContaining(["bora", "gelado", "especial"]),
+    );
+    expect(voiceGrammar("en", ["ice cream"])).toEqual(expect.arrayContaining(["ice", "cream"]));
+  });
 });
 
 describe("matchSoundboardTrigger", () => {

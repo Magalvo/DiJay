@@ -36,9 +36,14 @@ import {
   type CaptureResult,
   DiscordVoiceListener,
 } from "../infrastructure/voice/discord-voice-listener.js";
+import {
+  type AudioActionDefinition,
+  loadAudioActionManifest,
+} from "../application/audio-actions/audio-action-manifest.js";
 import { resolveTranscript } from "../infrastructure/voice/resolve-transcript.js";
 import { VoskSpeechToText } from "../infrastructure/voice/vosk-speech-to-text.js";
-import { VoiceGreetingPlayer } from "./voice-greeting-player.js";
+import { VoiceClipPlayer } from "./voice-clip-player.js";
+import { VoiceListenerAudioActions } from "./voice-listener-audio-actions.js";
 
 const MAX_CAPTURE_MS = 6_000;
 const READY_TIMEOUT_MS = 10_000;
@@ -67,6 +72,36 @@ async function main(): Promise<void> {
     throw new Error("VOICE_IPC_SECRET is required for the voice listener");
   }
 
+  let audioActions: readonly AudioActionDefinition[] = [];
+  if (config.audioActions.enabled) {
+    try {
+      audioActions = (await loadAudioActionManifest(config.audioActions.manifest)).actions;
+      logger.info(
+        { actions: audioActions.length, manifest: config.audioActions.manifest },
+        "Voice listener audio actions loaded",
+      );
+    } catch (error) {
+      logger.error(
+        { err: error, manifest: config.audioActions.manifest },
+        "Voice listener audio actions disabled: invalid manifest",
+      );
+    }
+  }
+
+  const clipPlayer = new VoiceClipPlayer({
+    createAudioResource,
+    createPlayer: createAudioPlayer,
+    subscribe: (connection, player) => {
+      (connection as VoiceConnection).subscribe(player as ReturnType<typeof createAudioPlayer>);
+    },
+  });
+  const voiceAudioActions = new VoiceListenerAudioActions({
+    actions: audioActions,
+    audioActionsDir: config.audioActions.dir,
+    clipPlayer,
+    legacyGreeting: config.voice.greeting,
+  });
+
   // The active recognition language and its Vosk model can change at runtime (WI-016). Both
   // per-language model paths must exist on disk to switch; the initial language uses the model
   // guaranteed by env (VOICE_STT_MODEL_PATH maps to VOICE_LANGUAGE).
@@ -76,7 +111,10 @@ async function main(): Promise<void> {
     if (path === null) {
       throw new Error(`No Vosk model path configured for language "${language}"`);
     }
-    return new VoskSpeechToText(path, voiceGrammar(language));
+    return new VoskSpeechToText(
+      path,
+      voiceGrammar(language, voiceAudioActions.extraGrammar(language)),
+    );
   };
 
   let activeLanguage: VoiceLanguage = config.voice.language;
@@ -119,21 +157,6 @@ async function main(): Promise<void> {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
-  const greetingPlayer =
-    config.voice.greeting.enabled && config.voice.greeting.file.length > 0
-      ? new VoiceGreetingPlayer({
-          cooldownSeconds: config.voice.greeting.cooldownSeconds,
-          createAudioResource,
-          createPlayer: createAudioPlayer,
-          file: config.voice.greeting.file,
-          subscribe: (connection, player) => {
-            (connection as VoiceConnection).subscribe(
-              player as ReturnType<typeof createAudioPlayer>,
-            );
-          },
-        })
-      : undefined;
-
   const listenCommand = new SlashCommandBuilder()
     .setName("listen")
     .setDescription("Ouve um comando de voz durante alguns segundos.")
@@ -273,11 +296,12 @@ async function main(): Promise<void> {
     };
 
     const onSpeak = (userId: string): void => {
-      const receiver = connection?.receiver;
+      const activeConnection = connection;
       const channelId = connectedChannelId;
-      if (receiver === undefined || channelId === undefined) {
+      if (activeConnection === undefined || channelId === undefined) {
         return;
       }
+      const receiver = activeConnection.receiver;
       if (busy.has(userId) || Date.now() < (cooldownUntil.get(userId) ?? 0)) {
         return;
       }
@@ -296,6 +320,18 @@ async function main(): Promise<void> {
             // for a spoken "gelado", so the trigger can be mapped to those. Remove once
             // calibrated.
             logger.info({ open: await result.transcribeOpen() }, "Open-vocab transcript (diag)");
+          }
+          if (
+            await voiceAudioActions.handleSpokenPhrase({
+              channelId,
+              connection: activeConnection,
+              guildId,
+              language: activeLanguage,
+              transcript: result.transcript,
+              userId,
+            })
+          ) {
+            return;
           }
           // Soundboard triggers (WI-015) are self-contained: hearing the word fires the sound
           // with no wake word, handled locally so it overlays the music via Discord's native
@@ -365,11 +401,14 @@ async function main(): Promise<void> {
         connection = joined;
         connectedChannelId = target;
         joined.receiver.speaking.on("start", onSpeak);
-        if (greetingPlayer !== undefined) {
-          void greetingPlayer.play(joined, target).catch((error: unknown) => {
-            logger.error({ err: error, channelId: target }, "Failed to play voice greeting");
+        void voiceAudioActions
+          .handleListenerJoin({ channelId: target, connection: joined, guildId })
+          .catch((error: unknown) => {
+            logger.error(
+              { err: error, channelId: target },
+              "Failed to play voice listener audio action",
+            );
           });
-        }
         logger.info({ channelId: target }, "Hands-free wake-word listening in channel");
       } finally {
         reconciling = false;

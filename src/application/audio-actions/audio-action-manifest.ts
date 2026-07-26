@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const allowedAudioExtensions = new Set([".mp3", ".ogg", ".wav"]);
 
-const actionSchema = z.object({
+const baseActionSchema = z.object({
   cooldownSeconds: z
     .number()
     .int()
@@ -18,23 +18,57 @@ const actionSchema = z.object({
     .string()
     .trim()
     .regex(/^[a-z0-9_-]{1,64}$/),
+});
+
+const mainBotVoiceMemberJoinActionSchema = baseActionSchema.extend({
   message: z.string().trim().min(1).max(2_000),
+  target: z.literal("main_bot").optional(),
   trigger: z.literal("voice_member_join"),
 });
+
+const voiceListenerJoinActionSchema = baseActionSchema.extend({
+  target: z.literal("voice_listener"),
+  trigger: z.literal("voice_listener_join"),
+});
+
+const phraseMapSchema = z
+  .object({
+    en: z.array(z.string().trim().min(1)).optional(),
+    pt: z.array(z.string().trim().min(1)).optional(),
+  })
+  .strict()
+  .refine(
+    (phrases) => (phrases.en?.length ?? 0) > 0 || (phrases.pt?.length ?? 0) > 0,
+    "phrases must include at least one language with one phrase",
+  );
+
+const voiceListenerSpokenPhraseActionSchema = baseActionSchema.extend({
+  phrases: phraseMapSchema,
+  target: z.literal("voice_listener"),
+  trigger: z.literal("spoken_phrase"),
+});
+
+const actionSchema = z.discriminatedUnion("trigger", [
+  mainBotVoiceMemberJoinActionSchema,
+  voiceListenerJoinActionSchema,
+  voiceListenerSpokenPhraseActionSchema,
+]);
 
 const manifestSchema = z.object({
   actions: z.array(actionSchema).max(50),
 });
 
-export type AudioActionTrigger = "voice_member_join";
+export type AudioActionTarget = "main_bot" | "voice_listener";
+export type AudioActionTrigger = "spoken_phrase" | "voice_listener_join" | "voice_member_join";
 
-export interface AudioActionDefinition {
-  readonly cooldownSeconds: number;
-  readonly file: string;
-  readonly id: string;
-  readonly message: string;
-  readonly trigger: AudioActionTrigger;
-}
+export type MainBotAudioActionDefinition = z.infer<typeof mainBotVoiceMemberJoinActionSchema>;
+export type VoiceListenerJoinAudioActionDefinition = z.infer<typeof voiceListenerJoinActionSchema>;
+export type VoiceListenerSpokenPhraseAudioActionDefinition = z.infer<
+  typeof voiceListenerSpokenPhraseActionSchema
+>;
+export type VoiceListenerAudioActionDefinition =
+  VoiceListenerJoinAudioActionDefinition | VoiceListenerSpokenPhraseAudioActionDefinition;
+export type AudioActionDefinition = z.infer<typeof actionSchema>;
 
 export interface AudioActionManifest {
   readonly actions: readonly AudioActionDefinition[];
