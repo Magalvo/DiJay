@@ -217,6 +217,13 @@ joins voice only to play a clip.
          "cooldownSeconds": 86400
        },
        {
+         "id": "member_greeting",
+         "target": "voice_listener",
+         "trigger": "voice_listener_member_join",
+         "file": "greeting.mp3",
+         "cooldownSeconds": 0
+       },
+       {
          "id": "gelado",
          "target": "voice_listener",
          "trigger": "spoken_phrase",
@@ -251,6 +258,9 @@ Notes:
   Lavalink player in that voice channel. The clip is queued next, not overlaid perfectly over the
   music.
 - `voice_listener_join` is for DiJayMic when it auto-joins in hands-free mode.
+- `voice_listener_member_join` is for DiJayMic when another non-bot member joins or moves into
+  the voice channel where DiJayMic is already connected. Use `cooldownSeconds: 0` to greet every
+  time, or a larger value such as `86400` to greet each user once per day.
 - `spoken_phrase` is for DiJayMic local clips. Matching uses normalized whole phrases/tokens, so
   `gelado` does not fire on `congelado`.
 - New local DiJayMic clips should be added to the manifest, not to new env vars.

@@ -63,6 +63,65 @@ describe("VoiceListenerAudioActions", () => {
     );
   });
 
+  it("plays a member join action with a per-user cooldown key", async () => {
+    const clipPlayer = clipPlayerMock();
+    const service = new VoiceListenerAudioActions({
+      actions: [
+        {
+          cooldownSeconds: 0,
+          file: "member-greeting.mp3",
+          id: "member_greeting",
+          target: "voice_listener",
+          trigger: "voice_listener_member_join",
+        },
+      ],
+      audioActionsDir: "/app/audio-actions",
+      clipPlayer,
+    });
+
+    await expect(
+      service.handleListenerMemberJoin({
+        channelId: "voice-1",
+        connection: {},
+        guildId: "guild-1",
+        userId: "user-1",
+      }),
+    ).resolves.toBe(true);
+    expect(clipPlayer.play).toHaveBeenCalledWith(
+      {},
+      "guild-1:voice-1:user-1:member_greeting",
+      join("/app/audio-actions", "member-greeting.mp3"),
+      0,
+    );
+  });
+
+  it("returns false for member joins when no member join action exists", async () => {
+    const clipPlayer = clipPlayerMock();
+    const service = new VoiceListenerAudioActions({
+      actions: [
+        {
+          cooldownSeconds: 86_400,
+          file: "greeting.mp3",
+          id: "mic_greeting",
+          target: "voice_listener",
+          trigger: "voice_listener_join",
+        },
+      ],
+      audioActionsDir: "/app/audio-actions",
+      clipPlayer,
+    });
+
+    await expect(
+      service.handleListenerMemberJoin({
+        channelId: "voice-1",
+        connection: {},
+        guildId: "guild-1",
+        userId: "user-1",
+      }),
+    ).resolves.toBe(false);
+    expect(clipPlayer.play).not.toHaveBeenCalled();
+  });
+
   it("plays a spoken phrase action before command handling", async () => {
     const clipPlayer = clipPlayerMock();
     const service = new VoiceListenerAudioActions({

@@ -58,6 +58,13 @@ describe("loadAudioActionManifest", () => {
           target: "voice_listener",
           trigger: "spoken_phrase",
         },
+        {
+          cooldownSeconds: 0,
+          file: "member-greeting.mp3",
+          id: "member_greeting",
+          target: "voice_listener",
+          trigger: "voice_listener_member_join",
+        },
       ],
     });
 
@@ -77,6 +84,13 @@ describe("loadAudioActionManifest", () => {
           phrases: { en: ["gelado"], pt: ["gelado", "quero gelado"] },
           target: "voice_listener",
           trigger: "spoken_phrase",
+        },
+        {
+          cooldownSeconds: 0,
+          file: "member-greeting.mp3",
+          id: "member_greeting",
+          target: "voice_listener",
+          trigger: "voice_listener_member_join",
         },
       ],
     });

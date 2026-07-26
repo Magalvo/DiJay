@@ -27,10 +27,13 @@ export interface ListenerJoinEvent {
   readonly guildId: string;
 }
 
-export interface SpokenPhraseEvent extends ListenerJoinEvent {
+export interface ListenerMemberJoinEvent extends ListenerJoinEvent {
+  readonly userId: string;
+}
+
+export interface SpokenPhraseEvent extends ListenerMemberJoinEvent {
   readonly language: VoiceLanguage;
   readonly transcript: string;
-  readonly userId: string;
 }
 
 export class VoiceListenerAudioActions {
@@ -64,6 +67,22 @@ export class VoiceListenerAudioActions {
       `${event.guildId}:${event.channelId}:legacy_voice_greeting`,
       legacy.file,
       legacy.cooldownSeconds,
+    );
+  }
+
+  public async handleListenerMemberJoin(event: ListenerMemberJoinEvent): Promise<boolean> {
+    const action = this.actions.find(
+      (candidate) => candidate.trigger === "voice_listener_member_join",
+    );
+    if (action === undefined) {
+      return false;
+    }
+
+    return this.deps.clipPlayer.play(
+      event.connection,
+      `${event.guildId}:${event.channelId}:${event.userId}:${action.id}`,
+      this.clipPath(action.file),
+      action.cooldownSeconds,
     );
   }
 
