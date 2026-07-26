@@ -179,4 +179,68 @@ describe("PoruMusicGateway", () => {
     expect(queue.map((track) => track.info.title)).toEqual(["Now", "Existing"]);
     expect(skip).toHaveBeenCalledOnce();
   });
+
+  it("enqueues system audio on an existing player without creating a new connection", async () => {
+    const queue = [poruTrack("Existing")];
+    Object.assign(queue, { add: vi.fn() });
+    Object.defineProperty(queue, "size", { get: () => queue.length });
+    const player = {
+      currentTrack: poruTrack("Current"),
+      isPaused: false,
+      isPlaying: true,
+      queue,
+      textChannel: "text-1",
+      voiceChannel: "voice-1",
+    };
+    const poru = {
+      createConnection: vi.fn(),
+      get: vi.fn().mockReturnValue(player),
+      resolve: vi.fn().mockResolvedValue({
+        loadType: "track",
+        playlistInfo: {},
+        tracks: [poruTrack("Greeting")],
+      }),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const result = await gateway.enqueueSystem({
+      guildId: "guild-1",
+      position: "next",
+      query: "http://bot:3000/audio-actions/greeting.mp3",
+      requesterId: "audio-action:voice_join_greeting",
+      targetVoiceChannelId: "voice-1",
+    });
+
+    expect(poru.createConnection).not.toHaveBeenCalled();
+    expect(queue.map((track) => track.info.title)).toEqual(["Greeting", "Existing"]);
+    expect(result).toEqual({
+      enqueued: true,
+      textChannelId: "text-1",
+      voiceChannelId: "voice-1",
+    });
+  });
+
+  it("does not enqueue system audio when the active player is in another voice channel", async () => {
+    const poru = {
+      get: vi.fn().mockReturnValue({
+        currentTrack: poruTrack("Current"),
+        queue: [],
+        textChannel: "text-1",
+        voiceChannel: "voice-2",
+      }),
+      resolve: vi.fn(),
+    } as unknown as Poru;
+    const gateway = new PoruMusicGateway(poru);
+
+    const result = await gateway.enqueueSystem({
+      guildId: "guild-1",
+      position: "next",
+      query: "http://bot:3000/audio-actions/greeting.mp3",
+      requesterId: "audio-action:voice_join_greeting",
+      targetVoiceChannelId: "voice-1",
+    });
+
+    expect(poru.resolve).not.toHaveBeenCalled();
+    expect(result.enqueued).toBe(false);
+  });
 });

@@ -17,6 +17,11 @@ function gateway(overrides: Record<string, unknown> = {}): MusicGateway {
   const base: MusicGateway = {
     clear: vi.fn().mockResolvedValue(0),
     enqueue: vi.fn(),
+    enqueueSystem: vi.fn().mockResolvedValue({
+      enqueued: false,
+      textChannelId: null,
+      voiceChannelId: null,
+    }),
     getState: vi.fn().mockResolvedValue(null),
     pause: vi.fn(),
     remove: vi.fn().mockResolvedValue(null),

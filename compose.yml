@@ -38,6 +38,7 @@ services:
       lavalink:
         condition: service_healthy
     volumes:
+      - ./audio-actions:/app/audio-actions:ro
       - dijay-data:/app/data
     healthcheck:
       test:

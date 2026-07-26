@@ -6,6 +6,14 @@ const booleanFromString = z
   .transform((value) => value === "true");
 
 const environmentSchema = z.object({
+  AUDIO_ACTIONS_BASE_URL: z
+    .string()
+    .trim()
+    .url()
+    .default("http://bot:3000/audio-actions"),
+  AUDIO_ACTIONS_DIR: z.string().min(1).default("./audio-actions"),
+  AUDIO_ACTIONS_ENABLED: booleanFromString,
+  AUDIO_ACTIONS_MANIFEST: z.string().min(1).default("./audio-actions/actions.json"),
   BOT_STATUS_TEXT: z.string().trim().min(1).max(128).default("música | /play"),
   DATA_DIR: z.string().min(1).default("./data"),
   DEFAULT_VOLUME: z.coerce.number().int().min(0).max(150).default(80),
@@ -77,6 +85,12 @@ const environmentSchema = z.object({
 });
 
 export interface AppConfig {
+  readonly audioActions: {
+    readonly baseUrl: string;
+    readonly dir: string;
+    readonly enabled: boolean;
+    readonly manifest: string;
+  };
   readonly botStatusText: string;
   readonly dataDir: string;
   readonly defaultVolume: number;
@@ -129,6 +143,12 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
   }
 
   return {
+    audioActions: {
+      baseUrl: result.data.AUDIO_ACTIONS_BASE_URL,
+      dir: result.data.AUDIO_ACTIONS_DIR,
+      enabled: result.data.AUDIO_ACTIONS_ENABLED,
+      manifest: result.data.AUDIO_ACTIONS_MANIFEST,
+    },
     botStatusText: result.data.BOT_STATUS_TEXT,
     dataDir: result.data.DATA_DIR,
     defaultVolume: result.data.DEFAULT_VOLUME,

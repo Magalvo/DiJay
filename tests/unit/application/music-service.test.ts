@@ -32,6 +32,11 @@ function createGateway(result?: Partial<EnqueueResult>): MusicGateway {
     resolveSelection: vi.fn().mockResolvedValue({ playlistName: null, tracks: [] }),
     resume: vi.fn().mockResolvedValue(false),
     seek: vi.fn().mockResolvedValue(false),
+    enqueueSystem: vi.fn().mockResolvedValue({
+      enqueued: false,
+      textChannelId: null,
+      voiceChannelId: null,
+    }),
     setLoop: vi.fn().mockResolvedValue(false),
     setVolume: vi.fn().mockResolvedValue(false),
     shuffle: vi.fn().mockResolvedValue(0),
@@ -96,6 +101,27 @@ describe("MusicService", () => {
 
     await expect(service.skip(request)).rejects.toMatchObject({
       code: "NOTHING_PLAYING",
+    });
+  });
+
+  it("delegates a system audio action without requiring a user playback context", async () => {
+    const gateway = createGateway();
+    const service = new MusicService(gateway);
+
+    await service.playSystemAudioAction({
+      guildId: "guild-1",
+      position: "next",
+      query: " http://bot:3000/audio-actions/greeting.mp3 ",
+      requesterId: "audio-action:voice_join_greeting",
+      targetVoiceChannelId: "voice-1",
+    });
+
+    expect(gateway.enqueueSystem).toHaveBeenCalledWith({
+      guildId: "guild-1",
+      position: "next",
+      query: "http://bot:3000/audio-actions/greeting.mp3",
+      requesterId: "audio-action:voice_join_greeting",
+      targetVoiceChannelId: "voice-1",
     });
   });
 });
