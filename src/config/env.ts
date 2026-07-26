@@ -6,11 +6,7 @@ const booleanFromString = z
   .transform((value) => value === "true");
 
 const environmentSchema = z.object({
-  AUDIO_ACTIONS_BASE_URL: z
-    .string()
-    .trim()
-    .url()
-    .default("http://bot:3000/audio-actions"),
+  AUDIO_ACTIONS_BASE_URL: z.string().trim().url().default("http://bot:3000/audio-actions"),
   AUDIO_ACTIONS_DIR: z.string().min(1).default("./audio-actions"),
   AUDIO_ACTIONS_ENABLED: booleanFromString,
   AUDIO_ACTIONS_MANIFEST: z.string().min(1).default("./audio-actions/actions.json"),
