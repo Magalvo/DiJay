@@ -18,7 +18,11 @@ describe("database backup", () => {
   it("creates a consistent readable copy", async () => {
     const sourcePath = join(directory, "dijay.sqlite");
     const source = openAppDatabase(sourcePath);
-    source.exec("INSERT INTO guild_settings VALUES ('guild-1', 80, 300, 1, '2026-01-01')");
+    source.exec(
+      `INSERT INTO guild_settings
+         (guild_id, default_volume, idle_timeout_seconds, announcements_enabled, updated_at)
+       VALUES ('guild-1', 80, 300, 1, '2026-01-01')`,
+    );
 
     const targetPath = await backupDatabase(source, join(directory, "backups"));
     source.close();

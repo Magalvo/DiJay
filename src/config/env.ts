@@ -71,6 +71,10 @@ const environmentSchema = z.object({
     }),
   VOICE_IPC_URL: z.string().trim().default("http://bot:3100"),
   VOICE_STT_MODEL_PATH: z.string().min(1).default("./models/vosk"),
+  // Per-language model paths for the live PT/EN toggle (WI-016). When both are set the listener
+  // can switch models at runtime; otherwise VOICE_STT_MODEL_PATH is used for VOICE_LANGUAGE only.
+  VOICE_STT_MODEL_PATH_EN: z.string().trim().default(""),
+  VOICE_STT_MODEL_PATH_PT: z.string().trim().default(""),
 });
 
 export interface AppConfig {
@@ -99,6 +103,8 @@ export interface AppConfig {
     readonly enabled: boolean;
     readonly language: "pt" | "en";
     readonly modelPath: string;
+    /** Per-language model paths for the runtime PT/EN toggle; null when that model is absent. */
+    readonly modelPaths: { readonly en: string | null; readonly pt: string | null };
     /** Spoken trigger word -> Discord soundboard sound id. Empty when the feature is off. */
     readonly soundboardSounds: Readonly<Record<string, string>>;
     readonly wakeWordEnabled: boolean;
@@ -150,6 +156,16 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
       enabled: result.data.VOICE_ENABLED,
       language: result.data.VOICE_LANGUAGE,
       modelPath: result.data.VOICE_STT_MODEL_PATH,
+      modelPaths: {
+        en:
+          result.data.VOICE_STT_MODEL_PATH_EN ||
+          (result.data.VOICE_LANGUAGE === "en" ? result.data.VOICE_STT_MODEL_PATH : "") ||
+          null,
+        pt:
+          result.data.VOICE_STT_MODEL_PATH_PT ||
+          (result.data.VOICE_LANGUAGE === "pt" ? result.data.VOICE_STT_MODEL_PATH : "") ||
+          null,
+      },
       soundboardSounds: result.data.VOICE_SOUNDBOARD_SOUNDS,
       wakeWordEnabled: result.data.VOICE_WAKE_WORD_ENABLED,
     },

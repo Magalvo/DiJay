@@ -29,6 +29,13 @@ export class GuildSettingsService {
         "Idle timeout must be between 30 and 3600 seconds.",
       );
     }
+    if (
+      update.voiceLanguage !== undefined &&
+      update.voiceLanguage !== "pt" &&
+      update.voiceLanguage !== "en"
+    ) {
+      throw new MusicError("INVALID_VOICE_LANGUAGE", "Voice language must be 'pt' or 'en'.");
+    }
     return this.repository.update(guildId, update);
   }
 }

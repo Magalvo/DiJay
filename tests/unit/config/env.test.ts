@@ -51,6 +51,22 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...validEnv, VOICE_LANGUAGE: "fr" })).toThrowError(/VOICE_LANGUAGE/);
   });
 
+  it("derives per-language model paths, defaulting the primary to the configured language", () => {
+    // With only VOICE_STT_MODEL_PATH, that path maps to VOICE_LANGUAGE; the other is absent.
+    expect(
+      parseEnv({ ...validEnv, VOICE_LANGUAGE: "pt", VOICE_STT_MODEL_PATH: "/m/pt" }),
+    ).toMatchObject({ voice: { modelPaths: { pt: "/m/pt", en: null } } });
+
+    // Explicit per-language paths enable the runtime toggle for both.
+    expect(
+      parseEnv({
+        ...validEnv,
+        VOICE_STT_MODEL_PATH_PT: "/m/pt",
+        VOICE_STT_MODEL_PATH_EN: "/m/en",
+      }),
+    ).toMatchObject({ voice: { modelPaths: { pt: "/m/pt", en: "/m/en" } } });
+  });
+
   it("disables hands-free wake-word listening by default and can enable it", () => {
     expect(parseEnv(validEnv)).toMatchObject({ voice: { wakeWordEnabled: false } });
     expect(parseEnv({ ...validEnv, VOICE_WAKE_WORD_ENABLED: "true" })).toMatchObject({

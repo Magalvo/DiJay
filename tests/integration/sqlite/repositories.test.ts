@@ -33,16 +33,19 @@ describe("SQLite repositories", () => {
       defaultVolume: 80,
       guildId: "guild-1",
       idleTimeoutSeconds: 300,
+      voiceLanguage: "pt",
     });
 
     await repository.update("guild-1", {
       announcementsEnabled: false,
       defaultVolume: 65,
+      voiceLanguage: "en",
     });
 
     expect(await repository.get("guild-1")).toMatchObject({
       announcementsEnabled: false,
       defaultVolume: 65,
+      voiceLanguage: "en",
     });
   });
 

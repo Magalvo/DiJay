@@ -118,26 +118,41 @@ export function queueEmbed(snapshot: QueueSnapshot, maxTracks = 10): EmbedBuilde
 }
 
 export function helpEmbed(): EmbedBuilder {
-  return baseEmbed().setAuthor({ name: "🎶 DiJay" }).setTitle("Comandos disponíveis").addFields(
-    {
-      name: "▶️ Reprodução",
-      value: "`/play` · `/pause` · `/resume` · `/skip` · `/stop` · `/seek`",
-    },
-    {
-      name: "📜 Fila",
-      value: "`/queue` · `/nowplaying` · `/shuffle` · `/remove` · `/clear` · `/loop`",
-    },
-    {
-      name: "🎛️ Painel & som",
-      value: "`/control` · `/volume`",
-    },
-    {
-      name: "📁 Playlists & definições",
-      value: "`/playlist` · `/settings`",
-    },
-    {
-      name: "🛠️ Utilitários",
-      value: "`/help` · `/ping`",
-    },
-  );
+  return baseEmbed()
+    .setAuthor({ name: "🎶 DiJay" })
+    .setTitle("Comandos disponíveis")
+    .setDescription("Aceita nomes, URLs e links/playlists do YouTube e Spotify.")
+    .addFields(
+      {
+        name: "▶️ Reprodução",
+        value: "`/play` · `/pause` · `/resume` · `/skip` · `/stop` · `/seek`",
+      },
+      {
+        name: "📜 Fila",
+        value: "`/queue` · `/nowplaying` · `/shuffle` · `/remove` · `/clear` · `/loop`",
+      },
+      {
+        name: "🎛️ Painel & som",
+        value: "`/control` · `/volume`",
+      },
+      {
+        name: "📁 Playlists",
+        value: "`/playlist` — create · list · show · add · remove · play · delete",
+      },
+      {
+        name: "⚙️ Definições",
+        value: "`/settings` — volume · idle-timeout · announcements · **voice-language** (PT/EN)",
+      },
+      {
+        name: "🎙️ Voz",
+        value:
+          "`/listen` — ouve um comando pontual.\n" +
+          "Mãos-livres (se ativo): diz **«dj»** + comando (ex.: «dj salta»).\n" +
+          "Soundboard: diz **«gelado»** ou **«leite»** para tocar o som.",
+      },
+      {
+        name: "🛠️ Utilitários",
+        value: "`/help` · `/ping`",
+      },
+    );
 }

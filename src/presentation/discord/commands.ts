@@ -246,6 +246,15 @@ async function executeSettings(
     await interaction.reply(`Timeout de inatividade definido para **${seconds}s**.`);
     return;
   }
+  if (subcommand === "voice-language") {
+    const language = interaction.options.getString("language", true) === "en" ? "en" : "pt";
+    await settings.update(guildId, { voiceLanguage: language });
+    const label = language === "en" ? "English 🇬🇧" : "Português 🇵🇹";
+    await interaction.reply(
+      `🗣️ Idioma de voz definido para **${label}**. O listener troca de modelo em segundos.`,
+    );
+    return;
+  }
   const enabled = interaction.options.getBoolean("enabled", true);
   await settings.update(guildId, { announcementsEnabled: enabled });
   await interaction.reply(`Anúncios de faixas ${enabled ? "ativados" : "desativados"}.`);
