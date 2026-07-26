@@ -144,7 +144,7 @@ Modes:
 Soundboard triggers (WI-015): in hands-free mode, self-triggering words play a native Discord
 soundboard sound over the music, with no `dj` prefix. Map each trigger to a sound id in
 `VOICE_SOUNDBOARD_SOUNDS` (comma-separated `key:soundId`, e.g. `gelado:1234567890123456789`);
-the key must be a recognized trigger (currently `gelado`). The sound must already exist in the
+the key must be a recognized trigger (currently `gelado`, `leite`). The sound must already exist in the
 server's soundboard, and the **listener** bot needs the **Use Soundboard** permission and to be
 unmuted (the sidecar joins unmuted for this). Same-server sounds need no "Use External Sounds".
 Get the sound id from the Discord API (the soundboard is not surfaced in the client UI id copy).

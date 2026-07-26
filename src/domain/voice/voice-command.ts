@@ -37,6 +37,7 @@ const PT: VoiceVocabulary = {
   ],
   grammar: [
     "gelado",
+    "leite",
     "dj",
     "pausa",
     "pausar",
@@ -74,7 +75,6 @@ const PT: VoiceVocabulary = {
     "oitenta",
     "noventa",
     "cem",
-    "gelado",
     "[unk]",
   ],
   numberWords: {
@@ -91,7 +91,10 @@ const PT: VoiceVocabulary = {
     cem: 100,
   },
   playVerbs: new Set(["toca", "tocar", "poe", "por", "reproduz", "reproduzir"]),
-  soundboardTriggers: [["gelado", ["gelado"]]],
+  soundboardTriggers: [
+    ["gelado", ["gelado"]],
+    ["leite", ["leite"]],
+  ],
   wakeWords: ["dijay", "di jay", "dj"],
 };
 
@@ -105,6 +108,7 @@ const EN: VoiceVocabulary = {
   ],
   grammar: [
     "gelado",
+    "leite",
     "dj",
     "pause",
     "resume",
@@ -133,7 +137,6 @@ const EN: VoiceVocabulary = {
     "eighty",
     "ninety",
     "hundred",
-    "gelado",
     "[unk]",
   ],
   numberWords: {
@@ -150,7 +153,10 @@ const EN: VoiceVocabulary = {
     hundred: 100,
   },
   playVerbs: new Set(["play", "put", "queue", "start"]),
-  soundboardTriggers: [["gelado", ["gelado"]]],
+  soundboardTriggers: [
+    ["gelado", ["gelado"]],
+    ["leite", ["leite"]],
+  ],
   wakeWords: ["dijay", "di jay", "dj"],
 };
 

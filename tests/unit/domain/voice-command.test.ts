@@ -95,11 +95,13 @@ describe("voiceGrammar", () => {
     expect(voiceGrammar("en")).toContain("dj");
   });
 
-  it("includes the soundboard trigger so Vosk can recognize it", () => {
+  it("includes the soundboard triggers so Vosk can recognize them", () => {
     // Same reason as the wake word: a word absent from the constrained grammar can never be
     // transcribed, so the soundboard trigger would never fire.
-    expect(voiceGrammar("pt")).toContain("gelado");
-    expect(voiceGrammar("en")).toContain("gelado");
+    for (const trigger of ["gelado", "leite"]) {
+      expect(voiceGrammar("pt")).toContain(trigger);
+      expect(voiceGrammar("en")).toContain(trigger);
+    }
   });
 });
 
@@ -107,6 +109,8 @@ describe("matchSoundboardTrigger", () => {
   it("returns the sound key when the trigger word is heard, with no wake word", () => {
     expect(matchSoundboardTrigger("gelado")).toBe("gelado");
     expect(matchSoundboardTrigger("quero um GELADO agora")).toBe("gelado");
+    expect(matchSoundboardTrigger("leite")).toBe("leite");
+    expect(matchSoundboardTrigger("passa o leite")).toBe("leite");
   });
 
   it("returns null when no trigger word is present", () => {
