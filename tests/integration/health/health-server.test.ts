@@ -1,4 +1,5 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -9,6 +10,26 @@ import {
   startHealthServer,
   type HealthServer,
 } from "../../../src/infrastructure/health/health-server.js";
+
+/**
+ * Sends a GET with the exact request-target given, bypassing WHATWG URL normalization.
+ * `fetch()` resolves `..` segments client-side before the request ever reaches the wire (e.g.
+ * `/audio-actions/../secret.txt` is sent as plain `/secret.txt`), so it cannot exercise the
+ * server's own traversal defense — only `http.request`'s raw `path` option can.
+ */
+function rawGet(port: number, rawPath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { host: "127.0.0.1", method: "GET", path: rawPath, port },
+      (response) => {
+        response.resume();
+        response.on("end", () => resolve(response.statusCode ?? 0));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 describe("health server", () => {
   let server: HealthServer | undefined;
@@ -48,6 +69,14 @@ describe("health server", () => {
     expect(await clip.text()).toBe("clip");
 
     expect((await fetch(`${baseUrl}/audio-actions/secret.txt`)).status).toBe(404);
-    expect((await fetch(`${baseUrl}/audio-actions/../secret.txt`)).status).toBe(404);
+
+    // fetch() itself resolves ".." client-side before sending the request (confirmed: it hits
+    // the wire as plain "/secret.txt"), so it can only prove out-of-prefix requests 404 — not
+    // that the server's own traversal guard works. rawGet sends the exact bytes a client that
+    // does not normalize (curl, a raw socket) could send, actually exercising `isSafeAudioPath`
+    // and the resolve()+startsWith() containment check in serveAudioAction.
+    expect(await rawGet(server.port, "/audio-actions/../secret.txt")).toBe(404);
+    expect(await rawGet(server.port, "/audio-actions/..%2fsecret.txt")).toBe(404);
+    expect(await rawGet(server.port, "/audio-actions/%2e%2e/secret.txt")).toBe(404);
   });
 });
