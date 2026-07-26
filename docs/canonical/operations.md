@@ -12,26 +12,43 @@ Neither Lavalink nor the health endpoint is published on the host.
 
 ## Spotify (LavaSrc)
 
-Spotify links resolve through the LavaSrc plugin, which reads metadata with a free Spotify
-account and mirrors playback through YouTube. Credentials are consumed by Lavalink, not the
-bot.
+Spotify links resolve through the LavaSrc plugin, which reads Spotify metadata and mirrors
+playback through YouTube. The old Spotify Client Credentials setup is no longer documented here:
+Spotify now requires the developer-app owner account to have Premium before that API path works.
+DiJay instead uses LavaSrc's anonymous-token path through the optional `spotify-tokener` sidecar.
 
-1. Create an app at <https://developer.spotify.com/dashboard> (only the Web API is needed;
-   Premium is not required) and copy the Client ID and Client Secret.
-2. Add them to `.env` on the VPS:
+1. Keep `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` out of `.env`. `lavalink/application.yml`
+   intentionally does not reference them, so a later accidental credential value cannot switch
+   LavaSrc back to the Premium-gated path.
+2. Set the country code and the descriptive startup-log flag in `.env`:
 
    ```
-   SPOTIFY_CLIENT_ID=...
-   SPOTIFY_CLIENT_SECRET=...
+   SPOTIFY_ENABLED=true
    SPOTIFY_COUNTRY_CODE=PT
    ```
 
-3. Recreate Lavalink so it downloads the plugin and picks up the credentials:
+   `SPOTIFY_ENABLED` is read only by the bot startup log. It does not gate playback; Lavalink
+   owns Spotify resolution.
 
-   `docker compose up -d --force-recreate lavalink`
+3. Start Lavalink with the tokener overlay:
 
-Leaving the credentials empty keeps every other source working; Spotify links simply fail
-to resolve.
+   `docker compose -f compose.yml -f compose.spotify-tokener.yml up -d --build`
+
+4. Confirm both services are healthy:
+
+   `docker compose -f compose.yml -f compose.spotify-tokener.yml ps`
+
+This mechanism is unofficial and outside Spotify's Terms of Service. No personal Spotify account,
+cookie, or token is used; the sidecar fetches a fully anonymous token through Spotify's web-player
+flow. The realistic failure mode is Spotify changing that internal web-player token schema, which
+would break Spotify resolution until `spotify-tokener` is updated upstream.
+
+Spotify-generated and algorithmic playlists, including ids starting with `37i9dQZ` such as
+Discover Weekly and Daily Mix, remain permanently unresolvable with anonymous tokens. Regular
+tracks, albums, and user-created/shared playlists are the supported Spotify targets.
+
+If the tokener overlay is not deployed, unreachable, or broken, Spotify links should fail
+gracefully while other Lavalink sources keep working.
 
 ## Troubleshooting: YouTube playback breaks
 

@@ -100,17 +100,11 @@ describe("parseEnv", () => {
     );
   });
 
-  it("treats Spotify as unconfigured unless both credentials are present", () => {
-    expect(parseEnv(validEnv)).toMatchObject({ spotify: { configured: false } });
-    expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id-only" })).toMatchObject({
-      spotify: { configured: false },
+  it("disables Spotify links by default and can mark anonymous token support as enabled", () => {
+    expect(parseEnv(validEnv)).toMatchObject({ spotify: { enabled: false } });
+    expect(parseEnv({ ...validEnv, SPOTIFY_ENABLED: "true" })).toMatchObject({
+      spotify: { enabled: true },
     });
-    expect(parseEnv({ ...validEnv, SPOTIFY_CLIENT_SECRET: "secret-only" })).toMatchObject({
-      spotify: { configured: false },
-    });
-    expect(
-      parseEnv({ ...validEnv, SPOTIFY_CLIENT_ID: "id", SPOTIFY_CLIENT_SECRET: "secret" }),
-    ).toMatchObject({ spotify: { configured: true } });
   });
 
   it("exposes voice IPC and second-bot config, disabled without a shared secret", () => {
