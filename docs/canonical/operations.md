@@ -162,10 +162,17 @@ Soundboard triggers (WI-015): in hands-free mode, self-triggering words play a n
 soundboard sound over the music, with no `dj` prefix. Map each trigger to a sound id in
 `VOICE_SOUNDBOARD_SOUNDS` (comma-separated `key:soundId`, e.g. `gelado:1234567890123456789`);
 the key must be a recognized trigger (currently `gelado`, `leite`). The sound must already exist in the
-server's soundboard, and the **listener** bot needs the **Use Soundboard** permission and to be
-unmuted (the sidecar joins unmuted for this). Same-server sounds need no "Use External Sounds".
-Get the sound id from the Discord API (the soundboard is not surfaced in the client UI id copy).
-Leave empty to disable.
+server's soundboard, and the **listener** bot needs both the **Speak** and **Use Soundboard**
+permissions and to be unmuted (the sidecar joins unmuted for this). Discord requires both
+permissions together for a soundboard sound to actually be heard by others — `Use Soundboard`
+alone is not enough: the REST call to trigger the sound still succeeds and logs "Soundboard sound
+played" with only `Use Soundboard`, because permission enforcement for that request happens at
+Discord's voice/media layer, not at the REST layer, so a missing `Speak` fails silently instead of
+erroring. Same-server sounds need no "Use External Sounds". If the sound still is not heard with
+both permissions granted, check each listener's own client setting (User Settings, Voice & Video,
+"Play soundboard sounds"), which silences all soundboard audio for that user regardless of bot
+configuration. Get the sound id from the Discord API (the soundboard is not surfaced in the
+client UI id copy). Leave empty to disable.
 
 Language toggle (WI-016): switch PT/EN at runtime with `/settings voice-language` — no restart.
 The choice is stored per guild; the listener polls the main bot and reloads the model within a
