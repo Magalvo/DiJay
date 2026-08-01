@@ -24,6 +24,16 @@ const environmentSchema = z.object({
   LAVALINK_SECURE: booleanFromString,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Backstop for a process that is alive but stuck (e.g. a zombied Discord gateway
+  // connection): if unhealthy for this long, the process logs a diagnostic and exits so the
+  // container's `restart: unless-stopped` policy recovers it. On by default; a plain Docker
+  // HEALTHCHECK does not restart a running-but-unhealthy container on its own. Shared by the
+  // main bot and the voice-listener sidecar.
+  SELF_HEAL_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
+  SELF_HEAL_GRACE_PERIOD_SECONDS: z.coerce.number().int().min(30).max(3_600).default(180),
   // Descriptive only: Spotify resolution lives in Lavalink/LavaSrc, usually via the
   // spotify-tokener compose overlay. The bot reads this only for the startup log.
   SPOTIFY_ENABLED: booleanFromString,
@@ -113,6 +123,10 @@ export interface AppConfig {
   };
   readonly logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
   readonly nodeEnv: "development" | "test" | "production";
+  readonly selfHeal: {
+    readonly enabled: boolean;
+    readonly gracePeriodSeconds: number;
+  };
   readonly spotify: {
     readonly enabled: boolean;
   };
@@ -176,6 +190,10 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     logLevel: result.data.LOG_LEVEL,
     nodeEnv: result.data.NODE_ENV,
+    selfHeal: {
+      enabled: result.data.SELF_HEAL_ENABLED,
+      gracePeriodSeconds: result.data.SELF_HEAL_GRACE_PERIOD_SECONDS,
+    },
     spotify: {
       enabled: result.data.SPOTIFY_ENABLED,
     },

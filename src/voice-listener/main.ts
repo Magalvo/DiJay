@@ -41,6 +41,7 @@ import {
   loadAudioActionManifest,
 } from "../application/audio-actions/audio-action-manifest.js";
 import { resolveTranscript } from "../infrastructure/voice/resolve-transcript.js";
+import { SelfHealWatchdog } from "../infrastructure/health/self-heal-watchdog.js";
 import { VoskSpeechToText } from "../infrastructure/voice/vosk-speech-to-text.js";
 import { VoiceClipPlayer } from "./voice-clip-player.js";
 import { VoiceListenerAudioActions } from "./voice-listener-audio-actions.js";
@@ -163,7 +164,52 @@ async function main(): Promise<void> {
     .setContexts(InteractionContextType.Guild)
     .toJSON();
 
+  // Live gateway tracking for self-heal: discord.js resumes/reconnects on its own in most
+  // cases, but a stuck/zombied connection is exactly what the watchdog below exists to catch.
+  let discordReady = false;
+  client.on(Events.ShardDisconnect, (event, shardId) => {
+    discordReady = false;
+    logger.warn({ code: event.code, shardId }, "Discord shard disconnected");
+  });
+  client.on(Events.ShardReconnecting, (shardId) => {
+    logger.info({ shardId }, "Discord shard reconnecting");
+  });
+  client.on(Events.ShardResume, (shardId) => {
+    discordReady = true;
+    logger.info({ shardId }, "Discord shard resumed");
+  });
+  client.on(Events.ShardReady, (shardId) => {
+    discordReady = true;
+    logger.info({ shardId }, "Discord shard ready");
+  });
+
+  // Self-heal backstop: if the gateway connection is stuck for longer than the grace period,
+  // log a full diagnostic and exit so `restart: unless-stopped` recovers it.
+  // `hasBeenHealthyOnce` keeps normal startup time from counting as "stuck" — only a
+  // regression after a successful boot triggers this.
+  let hasBeenHealthyOnce = false;
+  const selfHeal = new SelfHealWatchdog({
+    gracePeriodMs: config.selfHeal.gracePeriodSeconds * 1_000,
+    isHealthy: () => {
+      if (discordReady) {
+        hasBeenHealthyOnce = true;
+      }
+      return !hasBeenHealthyOnce || discordReady;
+    },
+    onUnhealthy: (unhealthyForMs) => {
+      logger.error(
+        { discordReady, unhealthyForMs },
+        "Self-heal: unhealthy past the grace period, exiting so the container restarts",
+      );
+      process.exit(1);
+    },
+  });
+  if (config.selfHeal.enabled) {
+    selfHeal.start();
+  }
+
   client.once(Events.ClientReady, (ready) => {
+    discordReady = true;
     const rest = new REST({ version: "10" }).setToken(config.voiceBot.token);
     void rest
       .put(Routes.applicationGuildCommands(config.voiceBot.clientId, config.discord.guildId), {
@@ -450,6 +496,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (): Promise<void> => {
     clearInterval(languagePoll);
+    selfHeal.stop();
     wakeWord?.dispose();
     activeStt.close();
     await client.destroy();

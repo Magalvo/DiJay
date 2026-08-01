@@ -34,6 +34,24 @@ describe("parseEnv", () => {
     });
   });
 
+  it("enables self-heal by default with a 180s grace period, and can be tuned or disabled", () => {
+    expect(parseEnv(validEnv)).toMatchObject({
+      selfHeal: { enabled: true, gracePeriodSeconds: 180 },
+    });
+    expect(
+      parseEnv({ ...validEnv, SELF_HEAL_ENABLED: "false", SELF_HEAL_GRACE_PERIOD_SECONDS: "300" }),
+    ).toMatchObject({ selfHeal: { enabled: false, gracePeriodSeconds: 300 } });
+  });
+
+  it("rejects a self-heal grace period outside its bounds", () => {
+    expect(() => parseEnv({ ...validEnv, SELF_HEAL_GRACE_PERIOD_SECONDS: "10" })).toThrowError(
+      /SELF_HEAL_GRACE_PERIOD_SECONDS/,
+    );
+    expect(() => parseEnv({ ...validEnv, SELF_HEAL_GRACE_PERIOD_SECONDS: "9999" })).toThrowError(
+      /SELF_HEAL_GRACE_PERIOD_SECONDS/,
+    );
+  });
+
   it("disables voice recognition by default and can enable it", () => {
     expect(parseEnv(validEnv)).toMatchObject({
       voice: { enabled: false, language: "pt", modelPath: "./models/vosk" },

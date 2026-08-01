@@ -10,6 +10,38 @@ dist/presentation/discord/register-commands.js`.
 
 Neither Lavalink nor the health endpoint is published on the host.
 
+## Self-heal
+
+Both the main bot and the DiJayMic (voice-listener) sidecar carry a self-heal watchdog: if a
+process is alive but stuck — most commonly a zombied Discord gateway connection that stops
+receiving data without ever cleanly disconnecting or reconnecting — for longer than
+`SELF_HEAL_GRACE_PERIOD_SECONDS` (default 180s), it logs a full diagnostic and exits with a
+non-zero code. `restart: unless-stopped` in `compose.yml`/`compose.voice-listener.yml` then
+recovers it automatically.
+
+This exists because a plain Docker `HEALTHCHECK` does **not** restart a running-but-unhealthy
+container on its own — the `restart` policy only triggers once the process actually exits.
+`healthcheck:` blocks in the compose files are for observability (`docker compose ps`); the
+actual recovery mechanism is each process detecting its own stuck state and exiting.
+
+The watchdog only starts counting after the process has successfully become healthy at least
+once, so a slow cold boot (e.g. waiting on Lavalink to come up) is never mistaken for "stuck".
+
+Look for `"Self-heal: unhealthy past the grace period, exiting so the container restarts"` in
+`docker compose logs bot` / `docker compose logs voice-listener` to confirm a restart was
+self-heal-triggered rather than a crash; the same log line reports which check was failing
+(`discord`/`lavalink` for the bot, `discordReady` for the sidecar) and for how long.
+
+Tune or disable in `.env` (applies to both processes):
+
+```
+SELF_HEAL_ENABLED=true
+SELF_HEAL_GRACE_PERIOD_SECONDS=180
+```
+
+Set `SELF_HEAL_ENABLED=false` during a known, prolonged outage (e.g. a sustained Discord
+incident) where repeated restarts would not help and would just add log noise.
+
 ## Spotify (LavaSrc)
 
 Spotify links resolve through the LavaSrc plugin, which reads Spotify metadata and mirrors
