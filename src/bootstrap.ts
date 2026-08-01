@@ -18,6 +18,7 @@ import { VoiceCommandService } from "./application/voice/voice-command-service.j
 import type { AppConfig } from "./config/env.js";
 import { HealthState } from "./infrastructure/health/health-state.js";
 import { startHealthServer } from "./infrastructure/health/health-server.js";
+import { SelfHealWatchdog } from "./infrastructure/health/self-heal-watchdog.js";
 import {
   startVoiceCommandServer,
   type VoiceCommandServer,
@@ -50,6 +51,33 @@ export async function startBot(config: AppConfig): Promise<void> {
       : "Spotify not configured; Spotify links will not resolve",
   );
   const health = new HealthState();
+
+  // Self-heal backstop: if the bot is alive but stuck (discord/lavalink unhealthy) for longer
+  // than the grace period, log a full diagnostic and exit so `restart: unless-stopped` recovers
+  // it. `hasBeenHealthyOnce` keeps normal startup time (before the first successful boot) from
+  // counting as "stuck" — only a REGRESSION after a successful boot triggers this.
+  let hasBeenHealthyOnce = false;
+  const selfHeal = new SelfHealWatchdog({
+    gracePeriodMs: config.selfHeal.gracePeriodSeconds * 1_000,
+    isHealthy: () => {
+      const snapshot = health.snapshot();
+      if (snapshot.healthy) {
+        hasBeenHealthyOnce = true;
+      }
+      return !hasBeenHealthyOnce || snapshot.healthy;
+    },
+    onUnhealthy: (unhealthyForMs) => {
+      logger.error(
+        { checks: health.snapshot().checks, unhealthyForMs },
+        "Self-heal: unhealthy past the grace period, exiting so the container restarts",
+      );
+      process.exit(1);
+    },
+  });
+  if (config.selfHeal.enabled) {
+    selfHeal.start();
+  }
+
   let audioActions: AudioActionService | undefined;
   let audioActionManifest: AudioActionManifest | undefined;
   let audioActionsDir: string | undefined;
@@ -206,6 +234,26 @@ export async function startBot(config: AppConfig): Promise<void> {
     accessPolicy,
   );
 
+  // Live gateway tracking for self-heal: discord.js resumes/reconnects on its own in most
+  // cases, but a stuck/zombied connection (open socket, no data flowing) is exactly what the
+  // self-heal watchdog below exists to catch, and it needs live disconnect signals to do that —
+  // ClientReady alone only fires once and never reflects a later live disconnect.
+  client.on(Events.ShardDisconnect, (event, shardId) => {
+    health.setDiscordReady(false);
+    logger.warn({ code: event.code, shardId }, "Discord shard disconnected");
+  });
+  client.on(Events.ShardReconnecting, (shardId) => {
+    logger.info({ shardId }, "Discord shard reconnecting");
+  });
+  client.on(Events.ShardResume, (shardId) => {
+    health.setDiscordReady(true);
+    logger.info({ shardId }, "Discord shard resumed");
+  });
+  client.on(Events.ShardReady, (shardId) => {
+    health.setDiscordReady(true);
+    logger.info({ shardId }, "Discord shard ready");
+  });
+
   client.once(Events.ClientReady, (readyClient) => {
     health.setDiscordReady(true);
     configureBotPresence(readyClient.user, config.botStatusText);
@@ -343,6 +391,7 @@ export async function startBot(config: AppConfig): Promise<void> {
       return;
     }
     shuttingDown = true;
+    selfHeal.stop();
     registry.stopAccepting();
     health.beginShutdown();
     idlePlayers.clear();
