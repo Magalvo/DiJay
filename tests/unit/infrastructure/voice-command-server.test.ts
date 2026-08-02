@@ -4,7 +4,7 @@ import type { PlaybackRequest } from "../../../src/application/music/music-gatew
 import { MusicError } from "../../../src/domain/music/music-error.js";
 import {
   handleVoiceCommand,
-  handleVoiceLanguage,
+  handleVoiceSettings,
   type VoiceCommandDispatch,
 } from "../../../src/infrastructure/ipc/voice-command-server.js";
 
@@ -20,7 +20,9 @@ const request: PlaybackRequest = {
 function dispatch(overrides: Partial<VoiceCommandDispatch> = {}): VoiceCommandDispatch {
   return {
     secret: SECRET,
-    currentLanguage: vi.fn().mockResolvedValue("pt"),
+    currentSettings: vi
+      .fn()
+      .mockResolvedValue({ commandsEnabled: true, language: "pt", soundsEnabled: true }),
     isAllowed: (guildId) => guildId === "guild-1",
     resolveRequest: () => request,
     handle: vi.fn().mockResolvedValue({ handled: true, intent: "pause", message: "⏸️ Pausado." }),
@@ -138,27 +140,34 @@ describe("handleVoiceCommand", () => {
   });
 });
 
-describe("handleVoiceLanguage", () => {
-  const ok = { method: "GET", path: "/voice/language", secret: SECRET } as const;
+describe("handleVoiceSettings", () => {
+  const ok = { method: "GET", path: "/voice/settings", secret: SECRET } as const;
 
-  it("returns the guild's current language", async () => {
-    const deps = dispatch({ currentLanguage: vi.fn().mockResolvedValue("en") });
-    const result = await handleVoiceLanguage(deps, { ...ok, guildId: "guild-1" });
-    expect(result).toEqual({ status: 200, body: { language: "en" } });
-    expect(deps.currentLanguage).toHaveBeenCalledWith("guild-1");
+  it("returns the guild's current voice settings", async () => {
+    const deps = dispatch({
+      currentSettings: vi
+        .fn()
+        .mockResolvedValue({ commandsEnabled: false, language: "en", soundsEnabled: true }),
+    });
+    const result = await handleVoiceSettings(deps, { ...ok, guildId: "guild-1" });
+    expect(result).toEqual({
+      status: 200,
+      body: { commandsEnabled: false, language: "en", soundsEnabled: true },
+    });
+    expect(deps.currentSettings).toHaveBeenCalledWith("guild-1");
   });
 
   it("rejects a wrong secret, foreign guild, missing guild, and wrong route", async () => {
     const deps = dispatch();
     expect(
-      (await handleVoiceLanguage(deps, { ...ok, secret: "nope", guildId: "guild-1" })).status,
+      (await handleVoiceSettings(deps, { ...ok, secret: "nope", guildId: "guild-1" })).status,
     ).toBe(401);
-    expect((await handleVoiceLanguage(deps, { ...ok, guildId: "guild-2" })).status).toBe(403);
-    expect((await handleVoiceLanguage(deps, { ...ok, guildId: undefined })).status).toBe(400);
+    expect((await handleVoiceSettings(deps, { ...ok, guildId: "guild-2" })).status).toBe(403);
+    expect((await handleVoiceSettings(deps, { ...ok, guildId: undefined })).status).toBe(400);
     expect(
-      (await handleVoiceLanguage(deps, { ...ok, path: "/voice/command", guildId: "guild-1" }))
+      (await handleVoiceSettings(deps, { ...ok, path: "/voice/command", guildId: "guild-1" }))
         .status,
     ).toBe(404);
-    expect(deps.currentLanguage).not.toHaveBeenCalled();
+    expect(deps.currentSettings).not.toHaveBeenCalled();
   });
 });

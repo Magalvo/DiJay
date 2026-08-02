@@ -201,7 +201,14 @@ export async function startBot(config: AppConfig): Promise<void> {
         config.voiceIpc.port,
         {
           secret: config.voiceIpc.secret,
-          currentLanguage: async (guildId) => (await settings.get(guildId)).voiceLanguage,
+          currentSettings: async (guildId) => {
+            const guildSettings = await settings.get(guildId);
+            return {
+              commandsEnabled: guildSettings.voiceCommandsEnabled,
+              language: guildSettings.voiceLanguage,
+              soundsEnabled: guildSettings.voiceSoundsEnabled,
+            };
+          },
           handle: (transcript, request, language) =>
             voiceCommands.handle(transcript, request, language),
           isAllowed: (guildId) => accessPolicy.isAllowed(guildId),

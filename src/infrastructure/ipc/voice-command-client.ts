@@ -1,11 +1,10 @@
-import type { VoiceLanguage } from "../../domain/voice/voice-command.js";
 import {
   VOICE_COMMAND_PATH,
-  VOICE_LANGUAGE_PATH,
   VOICE_SECRET_HEADER,
+  VOICE_SETTINGS_PATH,
   type VoiceCommandRequestBody,
   type VoiceCommandResponseBody,
-  type VoiceLanguageResponseBody,
+  type VoiceListenerSettingsResponseBody,
 } from "./voice-command-contract.js";
 
 export interface VoiceCommandClientConfig {
@@ -37,20 +36,20 @@ export async function forwardVoiceCommand(
 }
 
 /**
- * Polls the main bot for the guild's current voice language so the listener can reload its
- * model when it is changed via /settings. Throws on a non-2xx response.
+ * Polls the main bot for the guild's current voice settings (language and the two independent
+ * voice toggles) so the listener can follow changes made via /settings. Throws on a non-2xx
+ * response.
  */
-export async function fetchVoiceLanguage(
+export async function fetchVoiceListenerSettings(
   config: VoiceCommandClientConfig,
   guildId: string,
-): Promise<VoiceLanguage> {
+): Promise<VoiceListenerSettingsResponseBody> {
   const response = await fetch(
-    `${config.url}${VOICE_LANGUAGE_PATH}?guildId=${encodeURIComponent(guildId)}`,
+    `${config.url}${VOICE_SETTINGS_PATH}?guildId=${encodeURIComponent(guildId)}`,
     { headers: { [VOICE_SECRET_HEADER]: config.secret }, method: "GET" },
   );
   if (!response.ok) {
-    throw new Error(`Voice language IPC returned ${response.status}`);
+    throw new Error(`Voice settings IPC returned ${response.status}`);
   }
-  const body = (await response.json()) as VoiceLanguageResponseBody;
-  return body.language;
+  return (await response.json()) as VoiceListenerSettingsResponseBody;
 }

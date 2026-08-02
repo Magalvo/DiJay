@@ -11,12 +11,19 @@ import type { VoiceLanguage } from "../../domain/voice/voice-command.js";
 import { userFacingMusicError } from "../../presentation/discord/user-messages.js";
 import {
   VOICE_COMMAND_PATH,
-  VOICE_LANGUAGE_PATH,
   VOICE_SECRET_HEADER,
+  VOICE_SETTINGS_PATH,
   type VoiceCommandRequestBody,
   type VoiceCommandResponseBody,
-  type VoiceLanguageResponseBody,
+  type VoiceListenerSettingsResponseBody,
 } from "./voice-command-contract.js";
+
+/** The live-pollable voice settings for a guild, as the main bot's own settings store sees them. */
+export interface VoiceListenerSettings {
+  readonly commandsEnabled: boolean;
+  readonly language: VoiceLanguage;
+  readonly soundsEnabled: boolean;
+}
 
 /**
  * Everything the IPC endpoint needs to authorize and dispatch a spoken command. The main bot
@@ -24,8 +31,8 @@ import {
  */
 export interface VoiceCommandDispatch {
   readonly secret: string;
-  /** Current voice language for a guild, so the listener can follow changes made via /settings. */
-  currentLanguage(guildId: string): Promise<VoiceLanguage>;
+  /** Current voice settings for a guild, so the listener can follow changes made via /settings. */
+  currentSettings(guildId: string): Promise<VoiceListenerSettings>;
   handle(
     transcript: string,
     request: PlaybackRequest,
@@ -51,15 +58,15 @@ export interface VoiceCommandHandlerResult {
   readonly status: number;
 }
 
-export interface VoiceLanguageHandlerInput {
+export interface VoiceSettingsHandlerInput {
   readonly guildId: string | undefined;
   readonly method: string;
   readonly path: string;
   readonly secret: string | undefined;
 }
 
-export interface VoiceLanguageHandlerResult {
-  readonly body: VoiceLanguageResponseBody | { readonly error: string };
+export interface VoiceSettingsHandlerResult {
+  readonly body: VoiceListenerSettingsResponseBody | { readonly error: string };
   readonly status: number;
 }
 
@@ -116,14 +123,15 @@ export async function handleVoiceCommand(
 }
 
 /**
- * Pure handler for the language poll: validates the secret and allowlist, then returns the
- * guild's current voice language so the listener can follow /settings changes. Transport-free.
+ * Pure handler for the settings poll: validates the secret and allowlist, then returns the
+ * guild's current voice settings (language + the two independent voice toggles) so the listener
+ * can follow /settings changes. Transport-free.
  */
-export async function handleVoiceLanguage(
+export async function handleVoiceSettings(
   deps: VoiceCommandDispatch,
-  input: VoiceLanguageHandlerInput,
-): Promise<VoiceLanguageHandlerResult> {
-  if (input.method !== "GET" || input.path !== VOICE_LANGUAGE_PATH) {
+  input: VoiceSettingsHandlerInput,
+): Promise<VoiceSettingsHandlerResult> {
+  if (input.method !== "GET" || input.path !== VOICE_SETTINGS_PATH) {
     return { body: { error: "not found" }, status: 404 };
   }
   if (!secretMatches(deps.secret, input.secret)) {
@@ -135,8 +143,8 @@ export async function handleVoiceLanguage(
   if (!deps.isAllowed(input.guildId)) {
     return { body: { error: "forbidden" }, status: 403 };
   }
-  const language = await deps.currentLanguage(input.guildId);
-  return { body: { language }, status: 200 };
+  const settings = await deps.currentSettings(input.guildId);
+  return { body: settings, status: 200 };
 }
 
 /**
@@ -161,8 +169,8 @@ export async function startVoiceCommandServer(
         logger.error({ err: error }, "Voice command IPC dispatch failed");
         respond(response, { body: { error: "internal error" }, status: 500 });
       };
-      if (method === "GET" && path === VOICE_LANGUAGE_PATH) {
-        void handleVoiceLanguage(deps, {
+      if (method === "GET" && path === VOICE_SETTINGS_PATH) {
+        void handleVoiceSettings(deps, {
           guildId: queryParam(rawUrl, "guildId"),
           method,
           path,

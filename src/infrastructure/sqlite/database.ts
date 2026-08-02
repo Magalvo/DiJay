@@ -45,6 +45,17 @@ const migrations = [
         CHECK(voice_language IN ('pt', 'en'));
     `,
   },
+  {
+    version: 3,
+    sql: `
+      ALTER TABLE guild_settings
+        ADD COLUMN voice_commands_enabled INTEGER NOT NULL DEFAULT 1
+        CHECK(voice_commands_enabled IN (0, 1));
+      ALTER TABLE guild_settings
+        ADD COLUMN voice_sounds_enabled INTEGER NOT NULL DEFAULT 1
+        CHECK(voice_sounds_enabled IN (0, 1));
+    `,
+  },
 ] as const;
 
 export function openAppDatabase(path: string): DatabaseSync {

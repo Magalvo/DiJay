@@ -215,6 +215,19 @@ at boot. A relative model path works in Docker (it resolves under `/app` via the
 mount) and locally. (The main bot's in-process `/listen`, if used instead of the sidecar, still
 follows `VOICE_LANGUAGE` and needs a restart to change.)
 
+Voice toggles: two independent per-guild switches, same live poll as the language toggle (a few
+seconds to take effect, no restart).
+
+- `/settings voice-commands <enabled>` — the "dj \<command\>" playback control path (hands-free
+  and `/listen`). Turning it off replies to `/listen` with a clear message instead of capturing,
+  and hands-free mode simply stops forwarding recognized commands.
+- `/settings voice-sounds <enabled>` — spoken-phrase audio-action clips and the native
+  soundboard triggers above (both share this one switch, since they are both self-contained
+  "hear the word, play the thing" triggers with no `dj` prefix). Hands-free mode only.
+
+Both default to enabled and are independent: keep `voice-sounds` on for "gelado"/"leite" while
+turning `voice-commands` off (e.g. to stop accidental "dj stop" mid-party), or the reverse.
+
 Privacy and limits: nothing is persisted and no transcript is logged. Hands-free mode
 transcribes channel speech continuously in the listener process — a deliberate CPU/privacy
 trade-off, off by default. Discord voice receive is officially unsupported; acceptable for a
