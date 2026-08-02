@@ -224,6 +224,11 @@ seconds to take effect, no restart).
 - `/settings voice-sounds <enabled>` — spoken-phrase audio-action clips and the native
   soundboard triggers above (both share this one switch, since they are both self-contained
   "hear the word, play the thing" triggers with no `dj` prefix). Hands-free mode only.
+  **Does not** cover the join greetings from the "Audio actions" section below
+  (`voice_listener_join` / `voice_listener_member_join`): those play on a member entering the
+  channel, not on recognizing speech, so they are a different mechanism and always play
+  regardless of this toggle. Disable a specific greeting by removing its entry from
+  `actions.json` instead.
 
 Both default to enabled and are independent: keep `voice-sounds` on for "gelado"/"leite" while
 turning `voice-commands` off (e.g. to stop accidental "dj stop" mid-party), or the reverse.
