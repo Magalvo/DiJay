@@ -116,6 +116,25 @@ export const commandData = [
             .setRequired(true)
             .addChoices({ name: "Português", value: "pt" }, { name: "English", value: "en" }),
         ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("voice-commands")
+        .setDescription('Ativa ou desativa o controlo de reprodução por voz ("dj ...").')
+        .addBooleanOption((option) =>
+          option.setName("enabled").setDescription("Aceitar comandos de voz").setRequired(true),
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("voice-sounds")
+        .setDescription("Ativa ou desativa os sons e a soundboard acionados por voz.")
+        .addBooleanOption((option) =>
+          option
+            .setName("enabled")
+            .setDescription("Tocar sons e soundboard por voz")
+            .setRequired(true),
+        ),
     ),
   new SlashCommandBuilder()
     .setName("playlist")

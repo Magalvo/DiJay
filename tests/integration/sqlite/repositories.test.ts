@@ -33,19 +33,32 @@ describe("SQLite repositories", () => {
       defaultVolume: 80,
       guildId: "guild-1",
       idleTimeoutSeconds: 300,
+      voiceCommandsEnabled: true,
       voiceLanguage: "pt",
+      voiceSoundsEnabled: true,
     });
 
     await repository.update("guild-1", {
       announcementsEnabled: false,
       defaultVolume: 65,
+      voiceCommandsEnabled: false,
       voiceLanguage: "en",
+      voiceSoundsEnabled: false,
     });
 
     expect(await repository.get("guild-1")).toMatchObject({
       announcementsEnabled: false,
       defaultVolume: 65,
+      voiceCommandsEnabled: false,
       voiceLanguage: "en",
+      voiceSoundsEnabled: false,
+    });
+
+    // Independent: updating one voice toggle must not disturb the other.
+    await repository.update("guild-1", { voiceCommandsEnabled: true });
+    expect(await repository.get("guild-1")).toMatchObject({
+      voiceCommandsEnabled: true,
+      voiceSoundsEnabled: false,
     });
   });
 

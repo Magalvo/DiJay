@@ -9,7 +9,9 @@ const current: GuildSettings = {
   defaultVolume: 80,
   guildId: "guild-1",
   idleTimeoutSeconds: 300,
+  voiceCommandsEnabled: true,
   voiceLanguage: "pt",
+  voiceSoundsEnabled: true,
 };
 
 function makeService(): {
@@ -40,5 +42,16 @@ describe("GuildSettingsService voice language", () => {
       expect.objectContaining({ code: "INVALID_VOICE_LANGUAGE" }),
     );
     expect(repository.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("GuildSettingsService voice toggles", () => {
+  it("persists the voice-commands and voice-sounds toggles independently", async () => {
+    const { service, repository } = makeService();
+    await service.update("guild-1", { voiceCommandsEnabled: false });
+    expect(repository.update).toHaveBeenCalledWith("guild-1", { voiceCommandsEnabled: false });
+
+    await service.update("guild-1", { voiceSoundsEnabled: false });
+    expect(repository.update).toHaveBeenCalledWith("guild-1", { voiceSoundsEnabled: false });
   });
 });

@@ -13,7 +13,9 @@ interface SettingsRow {
   default_volume: number;
   guild_id: string;
   idle_timeout_seconds: number;
+  voice_commands_enabled: number;
   voice_language: string;
+  voice_sounds_enabled: number;
 }
 
 export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
@@ -26,7 +28,8 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
     this.ensure(guildId);
     const row = this.database
       .prepare(
-        `SELECT guild_id, default_volume, idle_timeout_seconds, announcements_enabled, voice_language
+        `SELECT guild_id, default_volume, idle_timeout_seconds, announcements_enabled,
+                voice_language, voice_commands_enabled, voice_sounds_enabled
          FROM guild_settings WHERE guild_id = ?`,
       )
       .get(guildId) as unknown as SettingsRow;
@@ -39,7 +42,8 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
       .prepare(
         `UPDATE guild_settings
          SET default_volume = ?, idle_timeout_seconds = ?, announcements_enabled = ?,
-             voice_language = ?, updated_at = ?
+             voice_language = ?, voice_commands_enabled = ?, voice_sounds_enabled = ?,
+             updated_at = ?
          WHERE guild_id = ?`,
       )
       .run(
@@ -47,6 +51,8 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
         update.idleTimeoutSeconds ?? current.idleTimeoutSeconds,
         (update.announcementsEnabled ?? current.announcementsEnabled) ? 1 : 0,
         update.voiceLanguage ?? current.voiceLanguage,
+        (update.voiceCommandsEnabled ?? current.voiceCommandsEnabled) ? 1 : 0,
+        (update.voiceSoundsEnabled ?? current.voiceSoundsEnabled) ? 1 : 0,
         new Date().toISOString(),
         guildId,
       );
@@ -75,7 +81,9 @@ export class SqliteGuildSettingsRepository implements GuildSettingsRepository {
       defaultVolume: row.default_volume,
       guildId: row.guild_id,
       idleTimeoutSeconds: row.idle_timeout_seconds,
+      voiceCommandsEnabled: row.voice_commands_enabled === 1,
       voiceLanguage: row.voice_language === "en" ? "en" : "pt",
+      voiceSoundsEnabled: row.voice_sounds_enabled === 1,
     };
   }
 }

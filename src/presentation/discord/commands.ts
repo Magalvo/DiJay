@@ -255,6 +255,22 @@ async function executeSettings(
     );
     return;
   }
+  if (subcommand === "voice-commands") {
+    const enabled = interaction.options.getBoolean("enabled", true);
+    await settings.update(guildId, { voiceCommandsEnabled: enabled });
+    await interaction.reply(
+      `🎙️ Comandos de voz ${enabled ? "ativados" : "desativados"}. O listener aplica em segundos.`,
+    );
+    return;
+  }
+  if (subcommand === "voice-sounds") {
+    const enabled = interaction.options.getBoolean("enabled", true);
+    await settings.update(guildId, { voiceSoundsEnabled: enabled });
+    await interaction.reply(
+      `🔊 Sons e soundboard por voz ${enabled ? "ativados" : "desativados"}. O listener aplica em segundos.`,
+    );
+    return;
+  }
   const enabled = interaction.options.getBoolean("enabled", true);
   await settings.update(guildId, { announcementsEnabled: enabled });
   await interaction.reply(`Anúncios de faixas ${enabled ? "ativados" : "desativados"}.`);

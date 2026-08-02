@@ -141,7 +141,9 @@ export function helpEmbed(): EmbedBuilder {
       },
       {
         name: "⚙️ Definições",
-        value: "`/settings` — volume · idle-timeout · announcements · **voice-language** (PT/EN)",
+        value:
+          "`/settings` — volume · idle-timeout · announcements · voice-language (PT/EN) · " +
+          "**voice-commands** · **voice-sounds**",
       },
       {
         name: "🎙️ Voz",

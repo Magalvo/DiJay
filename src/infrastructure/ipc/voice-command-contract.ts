@@ -5,7 +5,7 @@ import type { VoiceLanguage } from "../../domain/voice/voice-command.js";
  * the main bot. Kept free of any Discord or transport types so both processes can share it.
  */
 export const VOICE_COMMAND_PATH = "/voice/command";
-export const VOICE_LANGUAGE_PATH = "/voice/language";
+export const VOICE_SETTINGS_PATH = "/voice/settings";
 export const VOICE_SECRET_HEADER = "x-voice-secret";
 
 export interface VoiceCommandRequestBody {
@@ -26,7 +26,13 @@ export interface VoiceCommandResponseBody {
   readonly message: string;
 }
 
-/** Response of the GET language endpoint the listener polls to follow the configured language. */
-export interface VoiceLanguageResponseBody {
+/**
+ * Response of the GET settings endpoint the listener polls to follow /settings changes live:
+ * the recognition language, and the two independent voice toggles (playback commands vs.
+ * sound/soundboard triggers).
+ */
+export interface VoiceListenerSettingsResponseBody {
+  readonly commandsEnabled: boolean;
   readonly language: VoiceLanguage;
+  readonly soundsEnabled: boolean;
 }

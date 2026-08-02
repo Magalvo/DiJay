@@ -29,7 +29,7 @@ import {
   voiceGrammar,
 } from "../domain/voice/voice-command.js";
 import {
-  fetchVoiceLanguage,
+  fetchVoiceListenerSettings,
   forwardVoiceCommand,
 } from "../infrastructure/ipc/voice-command-client.js";
 import {
@@ -51,9 +51,10 @@ const READY_TIMEOUT_MS = 10_000;
 // Per-user gap after a capture before the same speaker can trigger another, so one utterance
 // is not processed twice.
 const WAKE_COOLDOWN_MS = 1_500;
-// How often the listener asks the main bot for the configured voice language (WI-016), so a
-// change made via /settings takes effect within one interval without a restart.
-const LANGUAGE_POLL_MS = 15_000;
+// How often the listener asks the main bot for the current voice settings (language and the
+// two voice toggles, WI-016 / follow-up), so a change made via /settings takes effect within
+// one interval without a restart.
+const SETTINGS_POLL_MS = 15_000;
 
 /**
  * Entry point for the voice-listener sidecar (WI-013 / WI-014). Runs as a second Discord bot
@@ -146,12 +147,21 @@ async function main(): Promise<void> {
     logger.info({ language }, "Voice recognition model switched");
   };
 
+  // The two independent voice toggles (a "/settings voice-commands"/"voice-sounds" follow-up to
+  // WI-016): default to enabled so a poll failure or a not-yet-completed first poll never
+  // silently disables a feature nobody asked to turn off.
+  let commandsEnabled = true;
+  let soundsEnabled = true;
+
   const ipcConfig = { secret: config.voiceIpc.secret, url: config.voiceIpc.url };
-  const pollLanguage = async (): Promise<void> => {
+  const pollSettings = async (): Promise<void> => {
     try {
-      switchLanguage(await fetchVoiceLanguage(ipcConfig, config.discord.guildId));
+      const settings = await fetchVoiceListenerSettings(ipcConfig, config.discord.guildId);
+      switchLanguage(settings.language);
+      commandsEnabled = settings.commandsEnabled;
+      soundsEnabled = settings.soundsEnabled;
     } catch (error) {
-      logger.debug({ err: error }, "Voice language poll failed");
+      logger.debug({ err: error }, "Voice settings poll failed");
     }
   };
 
@@ -235,6 +245,16 @@ async function main(): Promise<void> {
   async function handleListen(interaction: ChatInputCommandInteraction): Promise<void> {
     if (!interaction.inCachedGuild() || interaction.guildId !== config.discord.guildId) {
       await interaction.reply({ content: "Indisponível.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (!commandsEnabled) {
+      // /listen exists only to issue playback commands, so the voice-commands toggle (WI-016
+      // follow-up) applies to it directly, unlike voiceSoundsEnabled which only affects
+      // hands-free mode's spoken-phrase/soundboard triggers.
+      await interaction.reply({
+        content: "🔇 Comandos de voz estão desativados neste servidor.",
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
     if (config.voice.wakeWordEnabled) {
@@ -356,25 +376,33 @@ async function main(): Promise<void> {
         .captureUtterance(receiver, userId, MAX_CAPTURE_MS)
         .then(async (result) => {
           cooldownUntil.set(userId, Date.now() + WAKE_COOLDOWN_MS);
-          if (
-            await voiceAudioActions.handleSpokenPhrase({
-              channelId,
-              connection: activeConnection,
-              guildId,
-              language: activeLanguage,
-              transcript: result.transcript,
-              userId,
-            })
-          ) {
-            return;
+
+          // Sound/soundboard triggers (WI-015, "voice-sounds" toggle): spoken-phrase clips and
+          // the native Discord soundboard are self-contained, no wake word required, so gate
+          // both together and independently of the voice-commands toggle below.
+          if (soundsEnabled) {
+            if (
+              await voiceAudioActions.handleSpokenPhrase({
+                channelId,
+                connection: activeConnection,
+                guildId,
+                language: activeLanguage,
+                transcript: result.transcript,
+                userId,
+              })
+            ) {
+              return;
+            }
+            const soundKey = matchSoundboardTrigger(result.transcript, activeLanguage);
+            const soundId = soundKey === null ? undefined : config.voice.soundboardSounds[soundKey];
+            if (soundId !== undefined) {
+              await playSoundboard(soundId, channelId);
+              return;
+            }
           }
-          // Soundboard triggers (WI-015) are self-contained: hearing the word fires the sound
-          // with no wake word, handled locally so it overlays the music via Discord's native
-          // soundboard. Unconfigured triggers fall through to normal command handling.
-          const soundKey = matchSoundboardTrigger(result.transcript, activeLanguage);
-          const soundId = soundKey === null ? undefined : config.voice.soundboardSounds[soundKey];
-          if (soundId !== undefined) {
-            await playSoundboard(soundId, channelId);
+
+          // Wake-word "dj <command>" playback control ("voice-commands" toggle).
+          if (!commandsEnabled) {
             return;
           }
           const transcript = await resolveTranscript(result, activeLanguage, true);
@@ -488,14 +516,15 @@ async function main(): Promise<void> {
 
   const wakeWord = config.voice.wakeWordEnabled ? setupWakeWordListening() : undefined;
 
-  // Follow the language configured via /settings: poll now and on an interval, reloading the
-  // model when it changes. Best-effort — a failed poll keeps the current language.
-  void pollLanguage();
-  const languagePoll = setInterval(() => void pollLanguage(), LANGUAGE_POLL_MS);
-  languagePoll.unref();
+  // Follow the settings configured via /settings: poll now and on an interval, reloading the
+  // model when the language changes and updating the two voice toggles. Best-effort — a failed
+  // poll keeps whatever was last known.
+  void pollSettings();
+  const settingsPoll = setInterval(() => void pollSettings(), SETTINGS_POLL_MS);
+  settingsPoll.unref();
 
   const shutdown = async (): Promise<void> => {
-    clearInterval(languagePoll);
+    clearInterval(settingsPoll);
     selfHeal.stop();
     wakeWord?.dispose();
     activeStt.close();
