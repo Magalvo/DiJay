@@ -271,6 +271,14 @@ async function executeSettings(
     );
     return;
   }
+  if (subcommand === "voice-join-greeting") {
+    const enabled = interaction.options.getBoolean("enabled", true);
+    await settings.update(guildId, { voiceJoinGreetingEnabled: enabled });
+    await interaction.reply(
+      `👋 Saudação ao entrar no canal ${enabled ? "ativada" : "desativada"}. Aplica em segundos.`,
+    );
+    return;
+  }
   const enabled = interaction.options.getBoolean("enabled", true);
   await settings.update(guildId, { announcementsEnabled: enabled });
   await interaction.reply(`Anúncios de faixas ${enabled ? "ativados" : "desativados"}.`);

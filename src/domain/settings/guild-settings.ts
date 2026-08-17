@@ -11,6 +11,14 @@ export interface GuildSettings {
    * disabling voice control of playback, or vice versa.
    */
   readonly voiceCommandsEnabled: boolean;
+  /**
+   * Whether the member-join greeting audio actions fire: `voice_member_join` (main bot, via
+   * Lavalink) and `voice_listener_member_join` (DiJayMic sidecar) — both trigger when a person
+   * enters the voice channel the bot is already active in. Independent of `voiceSoundsEnabled`
+   * (spoken triggers) and `voiceCommandsEnabled`, and does not cover `voice_listener_join`
+   * (DiJayMic's own auto-join greeting, which fires on the bot arriving, not a person entering).
+   */
+  readonly voiceJoinGreetingEnabled: boolean;
   /** Language of the voice recognition model/grammar the voice listener should use. */
   readonly voiceLanguage: VoiceLanguage;
   /**
@@ -27,6 +35,7 @@ export type GuildSettingsUpdate = Partial<
     | "defaultVolume"
     | "idleTimeoutSeconds"
     | "voiceCommandsEnabled"
+    | "voiceJoinGreetingEnabled"
     | "voiceLanguage"
     | "voiceSoundsEnabled"
   >

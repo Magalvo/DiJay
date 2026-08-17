@@ -215,8 +215,8 @@ at boot. A relative model path works in Docker (it resolves under `/app` via the
 mount) and locally. (The main bot's in-process `/listen`, if used instead of the sidecar, still
 follows `VOICE_LANGUAGE` and needs a restart to change.)
 
-Voice toggles: two independent per-guild switches, same live poll as the language toggle (a few
-seconds to take effect, no restart).
+Voice toggles: three independent per-guild switches, same live poll as the language toggle (a
+few seconds to take effect, no restart).
 
 - `/settings voice-commands <enabled>` — the "dj \<command\>" playback control path (hands-free
   and `/listen`). Turning it off replies to `/listen` with a clear message instead of capturing,
@@ -224,14 +224,18 @@ seconds to take effect, no restart).
 - `/settings voice-sounds <enabled>` — spoken-phrase audio-action clips and the native
   soundboard triggers above (both share this one switch, since they are both self-contained
   "hear the word, play the thing" triggers with no `dj` prefix). Hands-free mode only.
-  **Does not** cover the join greetings from the "Audio actions" section below
-  (`voice_listener_join` / `voice_listener_member_join`): those play on a member entering the
-  channel, not on recognizing speech, so they are a different mechanism and always play
-  regardless of this toggle. Disable a specific greeting by removing its entry from
+  **Does not** cover the join greetings below — those are a different mechanism (see next).
+- `/settings voice-join-greeting <enabled>` — the member-join greetings from the "Audio actions"
+  section below: `voice_member_join` (main bot, via Lavalink) and `voice_listener_member_join`
+  (DiJayMic sidecar). Both play on a **person** entering the voice channel the bot is already
+  active in, not on recognizing speech, which is why they get their own switch instead of
+  sharing `voice-sounds`. **Does not** cover `voice_listener_join` (DiJayMic's own greeting when
+  _it_ auto-joins a channel, not a person) — disable that one by removing its entry from
   `actions.json` instead.
 
-Both default to enabled and are independent: keep `voice-sounds` on for "gelado"/"leite" while
-turning `voice-commands` off (e.g. to stop accidental "dj stop" mid-party), or the reverse.
+All three default to enabled and are independent: keep `voice-sounds` on for "gelado"/"leite"
+while turning `voice-commands` off (e.g. to stop accidental "dj stop" mid-party), turn off
+`voice-join-greeting` on its own to stop the welcome sound without touching the others, etc.
 
 Privacy and limits: nothing is persisted and no transcript is logged. Hands-free mode
 transcribes channel speech continuously in the listener process — a deliberate CPU/privacy
@@ -318,6 +322,9 @@ Notes:
 - `voice_listener_member_join` is for DiJayMic when another non-bot member joins or moves into
   the voice channel where DiJayMic is already connected. Use `cooldownSeconds: 0` to greet every
   time, or a larger value such as `86400` to greet each user once per day.
+- `voice_member_join` and `voice_listener_member_join` are both toggled together per guild by
+  `/settings voice-join-greeting` (see "Voice-listener sidecar" above); `voice_listener_join` is
+  not covered by that toggle and is disabled by removing it from the manifest instead.
 - `spoken_phrase` is for DiJayMic local clips. Matching uses normalized whole phrases/tokens, so
   `gelado` does not fire on `congelado`.
 - New local DiJayMic clips should be added to the manifest, not to new env vars.

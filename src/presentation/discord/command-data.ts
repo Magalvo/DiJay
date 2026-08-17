@@ -135,6 +135,17 @@ export const commandData = [
             .setDescription("Tocar sons e soundboard por voz")
             .setRequired(true),
         ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("voice-join-greeting")
+        .setDescription("Ativa ou desativa o som ao entrar no canal de voz.")
+        .addBooleanOption((option) =>
+          option
+            .setName("enabled")
+            .setDescription("Tocar saudação quando alguém entra")
+            .setRequired(true),
+        ),
     ),
   new SlashCommandBuilder()
     .setName("playlist")

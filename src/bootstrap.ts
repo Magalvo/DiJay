@@ -205,6 +205,7 @@ export async function startBot(config: AppConfig): Promise<void> {
             const guildSettings = await settings.get(guildId);
             return {
               commandsEnabled: guildSettings.voiceCommandsEnabled,
+              joinGreetingEnabled: guildSettings.voiceJoinGreetingEnabled,
               language: guildSettings.voiceLanguage,
               soundsEnabled: guildSettings.voiceSoundsEnabled,
             };
@@ -302,14 +303,19 @@ export async function startBot(config: AppConfig): Promise<void> {
     ) {
       return;
     }
-    void audioActions
-      .handleVoiceMemberJoin({
-        guildId: newState.guild.id,
-        userId: newState.id,
-        voiceChannelId: newState.channelId,
+    const guildId = newState.guild.id;
+    const userId = newState.id;
+    const voiceChannelId = newState.channelId;
+    void settings
+      .get(guildId)
+      .then((guildSettings) => {
+        if (!guildSettings.voiceJoinGreetingEnabled) {
+          return undefined;
+        }
+        return audioActions.handleVoiceMemberJoin({ guildId, userId, voiceChannelId });
       })
       .catch((error: unknown) => {
-        logger.warn({ error, guildId: newState.guild.id }, "Audio action failed");
+        logger.warn({ error, guildId }, "Audio action failed");
       });
   });
 

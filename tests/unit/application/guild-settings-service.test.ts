@@ -10,6 +10,7 @@ const current: GuildSettings = {
   guildId: "guild-1",
   idleTimeoutSeconds: 300,
   voiceCommandsEnabled: true,
+  voiceJoinGreetingEnabled: true,
   voiceLanguage: "pt",
   voiceSoundsEnabled: true,
 };
@@ -53,5 +54,13 @@ describe("GuildSettingsService voice toggles", () => {
 
     await service.update("guild-1", { voiceSoundsEnabled: false });
     expect(repository.update).toHaveBeenCalledWith("guild-1", { voiceSoundsEnabled: false });
+  });
+
+  it("persists the voice-join-greeting toggle", async () => {
+    const { service, repository } = makeService();
+    await service.update("guild-1", { voiceJoinGreetingEnabled: false });
+    expect(repository.update).toHaveBeenCalledWith("guild-1", {
+      voiceJoinGreetingEnabled: false,
+    });
   });
 });

@@ -147,11 +147,12 @@ async function main(): Promise<void> {
     logger.info({ language }, "Voice recognition model switched");
   };
 
-  // The two independent voice toggles (a "/settings voice-commands"/"voice-sounds" follow-up to
-  // WI-016): default to enabled so a poll failure or a not-yet-completed first poll never
+  // The independent voice toggles (/settings voice-commands / voice-sounds / voice-join-
+  // greeting): default to enabled so a poll failure or a not-yet-completed first poll never
   // silently disables a feature nobody asked to turn off.
   let commandsEnabled = true;
   let soundsEnabled = true;
+  let joinGreetingEnabled = true;
 
   const ipcConfig = { secret: config.voiceIpc.secret, url: config.voiceIpc.url };
   const pollSettings = async (): Promise<void> => {
@@ -160,6 +161,7 @@ async function main(): Promise<void> {
       switchLanguage(settings.language);
       commandsEnabled = settings.commandsEnabled;
       soundsEnabled = settings.soundsEnabled;
+      joinGreetingEnabled = settings.joinGreetingEnabled;
     } catch (error) {
       logger.debug({ err: error }, "Voice settings poll failed");
     }
@@ -483,6 +485,7 @@ async function main(): Promise<void> {
       const channelId = connectedChannelId;
       const member = newState.member;
       if (
+        joinGreetingEnabled &&
         activeConnection !== undefined &&
         channelId !== undefined &&
         newState.guild.id === guildId &&
