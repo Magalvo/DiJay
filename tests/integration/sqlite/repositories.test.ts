@@ -34,6 +34,7 @@ describe("SQLite repositories", () => {
       guildId: "guild-1",
       idleTimeoutSeconds: 300,
       voiceCommandsEnabled: true,
+      voiceJoinGreetingEnabled: true,
       voiceLanguage: "pt",
       voiceSoundsEnabled: true,
     });
@@ -42,6 +43,7 @@ describe("SQLite repositories", () => {
       announcementsEnabled: false,
       defaultVolume: 65,
       voiceCommandsEnabled: false,
+      voiceJoinGreetingEnabled: false,
       voiceLanguage: "en",
       voiceSoundsEnabled: false,
     });
@@ -50,14 +52,16 @@ describe("SQLite repositories", () => {
       announcementsEnabled: false,
       defaultVolume: 65,
       voiceCommandsEnabled: false,
+      voiceJoinGreetingEnabled: false,
       voiceLanguage: "en",
       voiceSoundsEnabled: false,
     });
 
-    // Independent: updating one voice toggle must not disturb the other.
+    // Independent: updating one voice toggle must not disturb the others.
     await repository.update("guild-1", { voiceCommandsEnabled: true });
     expect(await repository.get("guild-1")).toMatchObject({
       voiceCommandsEnabled: true,
+      voiceJoinGreetingEnabled: false,
       voiceSoundsEnabled: false,
     });
   });

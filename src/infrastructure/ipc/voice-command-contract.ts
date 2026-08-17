@@ -28,11 +28,12 @@ export interface VoiceCommandResponseBody {
 
 /**
  * Response of the GET settings endpoint the listener polls to follow /settings changes live:
- * the recognition language, and the two independent voice toggles (playback commands vs.
- * sound/soundboard triggers).
+ * the recognition language, and the independent voice toggles (playback commands, sound/
+ * soundboard triggers, and member-join greetings).
  */
 export interface VoiceListenerSettingsResponseBody {
   readonly commandsEnabled: boolean;
+  readonly joinGreetingEnabled: boolean;
   readonly language: VoiceLanguage;
   readonly soundsEnabled: boolean;
 }

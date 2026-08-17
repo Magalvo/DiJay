@@ -20,9 +20,12 @@ const request: PlaybackRequest = {
 function dispatch(overrides: Partial<VoiceCommandDispatch> = {}): VoiceCommandDispatch {
   return {
     secret: SECRET,
-    currentSettings: vi
-      .fn()
-      .mockResolvedValue({ commandsEnabled: true, language: "pt", soundsEnabled: true }),
+    currentSettings: vi.fn().mockResolvedValue({
+      commandsEnabled: true,
+      joinGreetingEnabled: true,
+      language: "pt",
+      soundsEnabled: true,
+    }),
     isAllowed: (guildId) => guildId === "guild-1",
     resolveRequest: () => request,
     handle: vi.fn().mockResolvedValue({ handled: true, intent: "pause", message: "⏸️ Pausado." }),
@@ -145,14 +148,22 @@ describe("handleVoiceSettings", () => {
 
   it("returns the guild's current voice settings", async () => {
     const deps = dispatch({
-      currentSettings: vi
-        .fn()
-        .mockResolvedValue({ commandsEnabled: false, language: "en", soundsEnabled: true }),
+      currentSettings: vi.fn().mockResolvedValue({
+        commandsEnabled: false,
+        joinGreetingEnabled: false,
+        language: "en",
+        soundsEnabled: true,
+      }),
     });
     const result = await handleVoiceSettings(deps, { ...ok, guildId: "guild-1" });
     expect(result).toEqual({
       status: 200,
-      body: { commandsEnabled: false, language: "en", soundsEnabled: true },
+      body: {
+        commandsEnabled: false,
+        joinGreetingEnabled: false,
+        language: "en",
+        soundsEnabled: true,
+      },
     });
     expect(deps.currentSettings).toHaveBeenCalledWith("guild-1");
   });

@@ -56,6 +56,14 @@ const migrations = [
         CHECK(voice_sounds_enabled IN (0, 1));
     `,
   },
+  {
+    version: 4,
+    sql: `
+      ALTER TABLE guild_settings
+        ADD COLUMN voice_join_greeting_enabled INTEGER NOT NULL DEFAULT 1
+        CHECK(voice_join_greeting_enabled IN (0, 1));
+    `,
+  },
 ] as const;
 
 export function openAppDatabase(path: string): DatabaseSync {

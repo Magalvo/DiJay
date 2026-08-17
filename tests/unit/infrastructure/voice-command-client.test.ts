@@ -50,7 +50,13 @@ describe("fetchVoiceListenerSettings", () => {
   it("polls the settings endpoint with the guild id and secret, and returns the parsed body", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ commandsEnabled: false, language: "en", soundsEnabled: true }),
+      json: () =>
+        Promise.resolve({
+          commandsEnabled: false,
+          joinGreetingEnabled: false,
+          language: "en",
+          soundsEnabled: true,
+        }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -63,13 +69,24 @@ describe("fetchVoiceListenerSettings", () => {
     expect(url).toBe("http://main:3100/voice/settings?guildId=guild-1");
     expect(init.method).toBe("GET");
     expect(init.headers).toMatchObject({ "x-voice-secret": "a-very-long-shared-secret" });
-    expect(result).toEqual({ commandsEnabled: false, language: "en", soundsEnabled: true });
+    expect(result).toEqual({
+      commandsEnabled: false,
+      joinGreetingEnabled: false,
+      language: "en",
+      soundsEnabled: true,
+    });
   });
 
   it("URL-encodes the guild id in the query string", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ commandsEnabled: true, language: "pt", soundsEnabled: true }),
+      json: () =>
+        Promise.resolve({
+          commandsEnabled: true,
+          joinGreetingEnabled: true,
+          language: "pt",
+          soundsEnabled: true,
+        }),
     });
     vi.stubGlobal("fetch", fetchMock);
 

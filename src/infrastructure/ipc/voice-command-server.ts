@@ -21,6 +21,7 @@ import {
 /** The live-pollable voice settings for a guild, as the main bot's own settings store sees them. */
 export interface VoiceListenerSettings {
   readonly commandsEnabled: boolean;
+  readonly joinGreetingEnabled: boolean;
   readonly language: VoiceLanguage;
   readonly soundsEnabled: boolean;
 }
