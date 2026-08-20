@@ -84,10 +84,20 @@ gracefully while other Lavalink sources keep working.
 
 ## Troubleshooting: YouTube playback breaks
 
-If `/play` finds results (autocomplete works) but tracks fail to load — the bot replies "Não
-encontrei nenhuma faixa" and the Lavalink logs show
-`ScriptExtractionException: Must find sig function` — YouTube changed its player script and the
-`youtube-plugin` is outdated. This is recurring maintenance, not a bot bug.
+YouTube tightens its anti-bot/anti-scraper measures periodically, breaking `youtube-plugin` in
+one of two distinct ways — check the Lavalink logs to tell them apart, since the fix differs:
+
+**Resolution fails** (`/play` replies "Não encontrei nenhuma faixa", the bot never joins):
+Lavalink logs show `ScriptExtractionException: Must find sig function`. YouTube changed its
+player script and the plugin's own scraping is outdated.
+
+**Resolution succeeds but playback is silent** (a track title shows, the bot joins, no audio):
+Lavalink logs show a `TrackExceptionEvent` with something like `This video requires login` or
+`No supported audio streams available` — the track's metadata loaded fine, but every configured
+client (`ANDROID_VR`/`WEB`/`WEBEMBEDDED`) failed to fetch a playable stream. YouTube is treating
+the request as needing a real signed-in account, not just an outdated scraper.
+
+Either way, start with a plugin update — cheap and often enough on its own:
 
 1. Bump `dev.lavalink.youtube:youtube-plugin` in `lavalink/application.yml` to the latest
    release (see <https://github.com/lavalink-devs/youtube-source/releases>).
@@ -96,8 +106,10 @@ encontrei nenhuma faixa" and the Lavalink logs show
 
    `docker compose up -d --force-recreate lavalink`
 
-If a version bump alone stops working, YouTube may require OAuth/poToken; configure it per the
-plugin's README.
+If a version bump alone does not fix a `TrackExceptionEvent`/"requires login" failure, it
+genuinely needs a real account: enable OAuth (`plugins.youtube.oauth.enabled: true` in
+`lavalink/application.yml`, commented out with setup steps inline) rather than the narrower
+poToken option, per the plugin's own README recommendation.
 
 ## Voice recognition — in-process (legacy)
 

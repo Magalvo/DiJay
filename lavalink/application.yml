@@ -4,7 +4,7 @@ server:
 
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
       snapshot: false
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       repository: "https://maven.lavalink.dev/releases"
@@ -43,6 +43,19 @@ plugins:
       - ANDROID_VR
       - WEB
       - WEBEMBEDDED
+    # If tracks resolve (a title shows and the bot joins) but playback then fails with
+    # "TrackExceptionEvent" / "This video requires login" in the Lavalink logs, a plugin
+    # version bump alone will not fix it - YouTube is treating the request as needing a real
+    # account. Enable OAuth instead: set oauth.enabled: true, `docker compose up -d --force-recreate
+    # lavalink`, then watch `docker compose logs -f lavalink` for a device-login URL/code, sign
+    # in with a real Google/YouTube account in a browser, and the plugin prints a refresh token
+    # to the logs. Paste that into refreshToken below so it survives restarts (otherwise the
+    # device-login flow has to be redone every time). See
+    # https://github.com/lavalink-devs/youtube-source for details, including the alternative
+    # (narrower, WEB/WEBEMBEDDED-only) poToken option.
+    # oauth:
+    #   enabled: true
+    #   refreshToken: ""
   lavasrc:
     # Spotify is a "mirror" source: LavaSrc reads Spotify metadata and streams the
     # audio through these providers. ISRC matching is the most accurate mirror.
