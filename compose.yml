@@ -5,6 +5,9 @@ services:
     environment:
       LAVALINK_SERVER_PASSWORD: "${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in .env}"
       SPOTIFY_COUNTRY_CODE: "${SPOTIFY_COUNTRY_CODE:-PT}"
+      # Only used if the commented-out plugins.youtube.oauth block in application.yml is
+      # enabled; harmless when unset.
+      YOUTUBE_OAUTH_REFRESH_TOKEN: "${YOUTUBE_OAUTH_REFRESH_TOKEN:-}"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     healthcheck:
