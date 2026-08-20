@@ -107,9 +107,18 @@ Either way, start with a plugin update — cheap and often enough on its own:
    `docker compose up -d --force-recreate lavalink`
 
 If a version bump alone does not fix a `TrackExceptionEvent`/"requires login" failure, it
-genuinely needs a real account: enable OAuth (`plugins.youtube.oauth.enabled: true` in
-`lavalink/application.yml`, commented out with setup steps inline) rather than the narrower
-poToken option, per the plugin's own README recommendation.
+genuinely needs a real account. Enable OAuth (the plugin's own recommendation, over the
+narrower WEB/WEBEMBEDDED-only poToken option):
+
+1. Uncomment the `oauth:` block under `plugins.youtube` in `lavalink/application.yml`.
+2. `docker compose up -d --force-recreate lavalink`, then watch
+   `docker compose logs -f lavalink` for a device-login URL/code.
+3. Sign in with a real Google/YouTube account in a browser using that code.
+4. Lavalink prints a refresh token to the logs once you complete the login. Set
+   `YOUTUBE_OAUTH_REFRESH_TOKEN` to that value in `.env` — **never** paste it into
+   `application.yml`, which is committed to the repo — then
+   `docker compose up -d --force-recreate lavalink` once more so it persists across restarts
+   without redoing the device login.
 
 ## Voice recognition — in-process (legacy)
 
