@@ -43,11 +43,22 @@ plugins:
       - ANDROID_VR
       - WEB
       - WEBEMBEDDED
+      # TVHTML5 is the only client that ever gets OAuth applied to its requests (confirmed in
+      # youtube-plugin's own source: Client.supportsOAuth() defaults to false and only the "Tv"
+      # class overrides it to true; YoutubeAudioTrack.process() sets the oauth-enabled flag per
+      # client from that value on every attempt). It cannot resolve/search on its own
+      # (canHandleRequest always returns false there), so it only ever participates as the last
+      # fallback for loading the actual stream format - safe to always include. Without it in
+      # this list, an authenticated oauth block below has literally no effect: none of the
+      # other clients ever apply the token, so "This video requires login" persists identically
+      # even after a successful device login (this bit us once - do not remove this line).
+      - TVHTML5
     # If tracks resolve (a title shows and the bot joins) but playback then fails with
     # "TrackExceptionEvent" / "This video requires login" in the Lavalink logs, a plugin
     # version bump alone will not fix it - YouTube is treating the request as needing a real
     # account. Enable OAuth instead:
-    #   1. Uncomment the oauth block below.
+    #   1. Uncomment the oauth block below. TVHTML5 must stay in the clients list above, or
+    #      this has no effect (see the comment there).
     #   2. `docker compose up -d --force-recreate lavalink`, then watch
     #      `docker compose logs -f lavalink` for a device-login URL/code.
     #   3. Sign in with a real Google/YouTube account in a browser using that code.

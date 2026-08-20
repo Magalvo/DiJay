@@ -110,15 +110,26 @@ If a version bump alone does not fix a `TrackExceptionEvent`/"requires login" fa
 genuinely needs a real account. Enable OAuth (the plugin's own recommendation, over the
 narrower WEB/WEBEMBEDDED-only poToken option):
 
-1. Uncomment the `oauth:` block under `plugins.youtube` in `lavalink/application.yml`.
-2. `docker compose up -d --force-recreate lavalink`, then watch
+1. `TVHTML5` must be present in `plugins.youtube.clients` in `lavalink/application.yml` (it is,
+   by default). This is not optional decoration: confirmed in the plugin's own source, OAuth is
+   only ever applied to requests from a client whose `supportsOAuth()` returns true, and
+   `TVHTML5` is the _only_ one that does — none of `MUSIC`/`ANDROID_VR`/`WEB`/`WEBEMBEDDED` ever
+   use the token. Without `TVHTML5` in the list, a fully authenticated OAuth setup has zero
+   effect and "This video requires login" persists identically (confirmed live). `TVHTML5`
+   cannot resolve or search on its own, so it is safe to always leave in the list — it only
+   ever participates as the last fallback for loading the stream itself.
+2. Uncomment the `oauth:` block under `plugins.youtube` in `lavalink/application.yml`.
+3. `docker compose up -d --force-recreate lavalink`, then watch
    `docker compose logs -f lavalink` for a device-login URL/code.
-3. Sign in with a real Google/YouTube account in a browser using that code.
-4. Lavalink prints a refresh token to the logs once you complete the login. Set
+4. Sign in with a real Google/YouTube account in a browser using that code.
+5. Lavalink prints a refresh token to the logs once you complete the login. Set
    `YOUTUBE_OAUTH_REFRESH_TOKEN` to that value in `.env` — **never** paste it into
    `application.yml`, which is committed to the repo — then
    `docker compose up -d --force-recreate lavalink` once more so it persists across restarts
    without redoing the device login.
+
+Even with OAuth correctly applied, success is not guaranteed for every video — YouTube's own
+age/region gating can still refuse a request regardless of account.
 
 ## Voice recognition — in-process (legacy)
 
