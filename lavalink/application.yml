@@ -38,38 +38,44 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
+    # TV is the only client that ever gets OAuth applied to its requests: in youtube-plugin's
+    # own source, Client.supportsOAuth() defaults to false and only the "Tv" class overrides it
+    # to true, and YoutubeAudioTrack.process() sets the oauth-enabled flag per client from that
+    # value on every attempt. Without it in the list, an authenticated oauth block below has
+    # literally no effect - none of the other clients ever apply the token, so "This video
+    # requires login" persists identically even after a successful device login.
+    #
+    # The config identifier is `TV`, NOT `TVHTML5`. The plugin *logs* the resolved client as
+    # TVHTML5, which makes the wrong name look right, but ClientProvider cannot resolve it: it
+    # prints a single `Failed to resolve TVHTML5 into a Client` WARN at startup and silently
+    # drops the entry, leaving OAuth inert with no other symptom. Check the "YouTube source
+    # initialised with clients:" line after any edit here - if TVHTML5 is missing from it, the
+    # entry did not take. `TV` cannot resolve or search on its own (no metadata support), so it
+    # only ever participates as the fallback that loads the actual stream format.
     clients:
       - MUSIC
+      - TV
       - ANDROID_VR
       - WEB
       - WEBEMBEDDED
-      # TVHTML5 is the only client that ever gets OAuth applied to its requests (confirmed in
-      # youtube-plugin's own source: Client.supportsOAuth() defaults to false and only the "Tv"
-      # class overrides it to true; YoutubeAudioTrack.process() sets the oauth-enabled flag per
-      # client from that value on every attempt). It cannot resolve/search on its own
-      # (canHandleRequest always returns false there), so it only ever participates as the last
-      # fallback for loading the actual stream format - safe to always include. Without it in
-      # this list, an authenticated oauth block below has literally no effect: none of the
-      # other clients ever apply the token, so "This video requires login" persists identically
-      # even after a successful device login (this bit us once - do not remove this line).
-      - TVHTML5
-    # If tracks resolve (a title shows and the bot joins) but playback then fails with
-    # "TrackExceptionEvent" / "This video requires login" in the Lavalink logs, a plugin
-    # version bump alone will not fix it - YouTube is treating the request as needing a real
-    # account. Enable OAuth instead:
-    #   1. Uncomment the oauth block below. TVHTML5 must stay in the clients list above, or
-    #      this has no effect (see the comment there).
-    #   2. `docker compose up -d --force-recreate lavalink`, then watch
-    #      `docker compose logs -f lavalink` for a device-login URL/code.
-    #   3. Sign in with a real Google/YouTube account in a browser using that code.
-    #   4. The plugin prints a refresh token to the logs. Put it in YOUTUBE_OAUTH_REFRESH_TOKEN
+    # Without OAuth, search still resolves but EVERY client fails at stream time - verified
+    # against 1.18.2 with TV/TVHTML5_SIMPLY/IOS/MWEB/ANDROID/ANDROID_MUSIC/ANDROID_VR/WEB/
+    # WEBEMBEDDED: "This video requires login", "Sign in to confirm you're not a bot", and
+    # (for WEB) "No supported audio streams available" now that YouTube serves it SABR-only.
+    # A plugin bump will not fix it either - 1.18.2 is the latest release. OAuth is therefore
+    # required for YouTube playback:
+    #   1. Leave refreshToken empty, `docker compose up -d --force-recreate lavalink`, then
+    #      watch `docker compose logs -f lavalink` for a device-login URL/code.
+    #   2. Sign in at https://www.google.com/device with that code - USE A BURNER GOOGLE
+    #      ACCOUNT. The plugin itself warns the account may be terminated.
+    #   3. The plugin prints a refresh token to the logs. Put it in YOUTUBE_OAUTH_REFRESH_TOKEN
     #      in .env (never in this committed file - it grants ongoing account access) and
     #      recreate lavalink again so it survives restarts without redoing the device login.
     # See https://github.com/lavalink-devs/youtube-source for details, including the
     # alternative (narrower, WEB/WEBEMBEDDED-only) poToken option.
-    # oauth:
-    #   enabled: true
-    #   refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN:}"
+    oauth:
+      enabled: true
+      refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN:}"
   lavasrc:
     # Spotify is a "mirror" source: LavaSrc reads Spotify metadata and streams the
     # audio through these providers. ISRC matching is the most accurate mirror.

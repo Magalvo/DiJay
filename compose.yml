@@ -5,8 +5,9 @@ services:
     environment:
       LAVALINK_SERVER_PASSWORD: "${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in .env}"
       SPOTIFY_COUNTRY_CODE: "${SPOTIFY_COUNTRY_CODE:-PT}"
-      # Only used if the commented-out plugins.youtube.oauth block in application.yml is
-      # enabled; harmless when unset.
+      # Required for YouTube playback (plugins.youtube.oauth in application.yml). Leave unset
+      # for the first boot: Lavalink then prints a device-login code to link a burner account.
+      # See docs/canonical/operations.md.
       YOUTUBE_OAUTH_REFRESH_TOKEN: "${YOUTUBE_OAUTH_REFRESH_TOKEN:-}"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
