@@ -112,6 +112,34 @@ For a resolution failure, start with a plugin update — cheap and often enough 
 
    `docker compose up -d --force-recreate lavalink`
 
+### The plugin is pinned to a snapshot, not a release
+
+`lavalink/application.yml` pins `youtube-plugin` to a `main`-branch commit with `snapshot: true`,
+because a release carrying the fix does not exist yet. Around 2026-08-18 YouTube began rejecting
+Cobalt-family User-Agents on the TVHTML5 player endpoint, answering `UNPLAYABLE` /
+"The page needs to be reloaded." `TV` is the only OAuth-capable client, so that killed
+authenticated playback outright even with a valid refresh token — bot joins, announces, silence.
+Upstream [issue #226](https://github.com/lavalink-devs/youtube-source/issues/226), fixed by
+[#233](https://github.com/lavalink-devs/youtube-source/pull/233) (PlayStation 4 User-Agent),
+merged 2026-08-19; 1.18.2 predates it.
+
+Move back to a released version once one ships the fix (>= 1.18.3), so the deployment is not
+tracking an unreleased build indefinitely. Snapshot versions are commit SHAs, listed at
+<https://maven.lavalink.dev/snapshots/dev/lavalink/youtube/youtube-plugin/maven-metadata.xml>.
+
+Only Lavalink needs recreating after a plugin change — the file is volume-mounted:
+
+`docker compose up -d --force-recreate lavalink`
+
+**Changes to the bot's own code need an image rebuild.** `--force-recreate lavalink` restarts
+Lavalink alone, and `docker compose up -d bot` reuses the existing image, so a `git pull` that
+touched `src/` is not live until:
+
+`docker compose up -d --build bot`
+
+Check `docker compose ps` — the `CREATED` column shows the image age. A bot container created
+long before the last deploy is running old code.
+
 ### Completing the YouTube OAuth login
 
 `plugins.youtube.oauth` is enabled in `lavalink/application.yml`, but it does nothing until an

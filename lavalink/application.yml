@@ -4,8 +4,17 @@ server:
 
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
-      snapshot: false
+    # Pinned to a main-branch snapshot rather than a release, on purpose. Around 2026-08-18
+    # YouTube started rejecting Cobalt-family User-Agents on the TVHTML5 player endpoint,
+    # answering UNPLAYABLE / "The page needs to be reloaded." Because TV is the only
+    # OAuth-capable client, that takes out authenticated playback entirely - the exact symptom
+    # is every /play joining the channel and staying silent. Upstream issue #226; fixed by #233
+    # (PlayStation 4 User-Agent), merged 2026-08-19. No release carries it yet: 1.18.2 is from
+    # 2026-07-27. This commit also carries #235 (recover total length when contentLength is
+    # omitted). Go back to a released version as soon as one ships the fix (>= 1.18.3):
+    # https://github.com/lavalink-devs/youtube-source/issues/226
+    - dependency: "dev.lavalink.youtube:youtube-plugin:f45bbb7aebfcbc1c553769e04af6cd43afa8b7c3"
+      snapshot: true
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       repository: "https://maven.lavalink.dev/releases"
       snapshot: false
