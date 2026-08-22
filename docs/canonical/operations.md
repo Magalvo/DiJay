@@ -89,7 +89,9 @@ one of two distinct ways — check the Lavalink logs to tell them apart, since t
 
 **Resolution fails** (`/play` replies "Não encontrei nenhuma faixa", the bot never joins):
 Lavalink logs show `ScriptExtractionException: Must find sig function`. YouTube changed its
-player script and the plugin's own scraping is outdated.
+player script and the plugin's own scraping is outdated. Deciphering is delegated to the
+`yt-cipher` sidecar precisely so this class of breakage is absorbed there — see the section
+below before reaching for a plugin bump.
 
 **Resolution succeeds but playback is silent** (a track title shows, the bot joins, no audio):
 Lavalink logs show a `TrackExceptionEvent` with something like `This video requires login` or
@@ -139,6 +141,31 @@ touched `src/` is not live until:
 
 Check `docker compose ps` — the `CREATED` column shows the image age. A bot container created
 long before the last deploy is running old code.
+
+### The yt-cipher sidecar
+
+`compose.yml` runs `yt-cipher`, which deciphers YouTube's signature and n-parameter challenges
+on Lavalink's behalf (`plugins.youtube.remoteCipher` in `application.yml`). It is not optional.
+The plugin's own regex-based extraction fails on the current player script:
+
+`Must find sig function from script: /s/player/<id>/player_embed.vflset/<locale>/base.js`
+
+which lands on the very last step of playback — OAuth working, the client accepted, formats
+listed, and then no stream. Upstream's standing answer to that error is a remote cipher server
+rather than a plugin fix; the maintainer says so directly in
+[issue #225](https://github.com/lavalink-devs/youtube-source/issues/225).
+
+`OVERRIDE_PLAYER_VARIANT: IAS` in `compose.yml` matters: upstream reports only the IAS variant
+works consistently, and `player_embed` — the one the plugin asks for — is exactly the one that
+fails. Forcing IAS is what makes the failure go away.
+
+Set `YT_CIPHER_PASSWORD` in `.env` to any value; both sides read the same variable, so it only
+has to match. Generate one with `openssl rand -hex 32`. Empty disables auth on the sidecar,
+which is survivable only because it is never published off the private Docker network. It is
+not a Google credential and has nothing to do with the OAuth token.
+
+The image has no healthcheck because it is a compiled Deno binary on distroless — no shell,
+curl, nc or deno CLI to run one with. If it is down, Lavalink logs a cipher error per track.
 
 ### Completing the YouTube OAuth login
 

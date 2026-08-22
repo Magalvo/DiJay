@@ -82,6 +82,17 @@ plugins:
     #      recreate lavalink again so it survives restarts without redoing the device login.
     # See https://github.com/lavalink-devs/youtube-source for details, including the
     # alternative (narrower, WEB/WEBEMBEDDED-only) poToken option.
+    # Signature/n-parameter deciphering is delegated to the yt-cipher sidecar. The plugin's
+    # own extraction fails on the current player script ("Must find sig function from script:
+    # .../player_embed.vflset/<locale>/base.js"), and upstream's standing answer to that error
+    # is a remote cipher server rather than a plugin fix - the maintainer says as much in
+    # https://github.com/lavalink-devs/youtube-source/issues/225. The sidecar is forced to the
+    # IAS player variant (see compose.yml), which is what makes the embed-script failure go
+    # away. Without this block, playback dies at the format stage even with OAuth working.
+    remoteCipher:
+      url: "http://yt-cipher:8001"
+      password: "${YT_CIPHER_PASSWORD:}"
+      userAgent: "DiJay"
     oauth:
       enabled: true
       refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN:}"
