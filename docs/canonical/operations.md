@@ -94,10 +94,16 @@ player script and the plugin's own scraping is outdated.
 **Resolution succeeds but playback is silent** (a track title shows, the bot joins, no audio):
 Lavalink logs show a `TrackExceptionEvent` with something like `This video requires login` or
 `No supported audio streams available` — the track's metadata loaded fine, but every configured
-client (`ANDROID_VR`/`WEB`/`WEBEMBEDDED`) failed to fetch a playable stream. YouTube is treating
-the request as needing a real signed-in account, not just an outdated scraper.
+client failed to fetch a playable stream. YouTube is treating the request as needing a real
+signed-in account, not just an outdated scraper. As of `youtube-plugin` 1.18.2 (the latest
+release), **no client streams YouTube unauthenticated** — verified against `TV`,
+`TVHTML5_SIMPLY`, `IOS`, `MWEB`, `ANDROID`, `ANDROID_MUSIC`, `ANDROID_VR`, `WEB` and
+`WEBEMBEDDED`: each fails with "This video requires login", "Sign in to confirm you're not a
+bot", or — for `WEB` — "No supported audio streams available", now that YouTube serves it
+SABR-only formats. Search keeps working throughout, because it only reads metadata. Go straight
+to the OAuth steps below; a version bump cannot fix this one.
 
-Either way, start with a plugin update — cheap and often enough on its own:
+For a resolution failure, start with a plugin update — cheap and often enough on its own:
 
 1. Bump `dev.lavalink.youtube:youtube-plugin` in `lavalink/application.yml` to the latest
    release (see <https://github.com/lavalink-devs/youtube-source/releases>).
@@ -106,27 +112,45 @@ Either way, start with a plugin update — cheap and often enough on its own:
 
    `docker compose up -d --force-recreate lavalink`
 
-If a version bump alone does not fix a `TrackExceptionEvent`/"requires login" failure, it
-genuinely needs a real account. Enable OAuth (the plugin's own recommendation, over the
-narrower WEB/WEBEMBEDDED-only poToken option):
+### Completing the YouTube OAuth login
 
-1. `TVHTML5` must be present in `plugins.youtube.clients` in `lavalink/application.yml` (it is,
-   by default). This is not optional decoration: confirmed in the plugin's own source, OAuth is
-   only ever applied to requests from a client whose `supportsOAuth()` returns true, and
-   `TVHTML5` is the _only_ one that does — none of `MUSIC`/`ANDROID_VR`/`WEB`/`WEBEMBEDDED` ever
-   use the token. Without `TVHTML5` in the list, a fully authenticated OAuth setup has zero
-   effect and "This video requires login" persists identically (confirmed live). `TVHTML5`
-   cannot resolve or search on its own, so it is safe to always leave in the list — it only
-   ever participates as the last fallback for loading the stream itself.
-2. Uncomment the `oauth:` block under `plugins.youtube` in `lavalink/application.yml`.
-3. `docker compose up -d --force-recreate lavalink`, then watch
-   `docker compose logs -f lavalink` for a device-login URL/code.
-4. Sign in with a real Google/YouTube account in a browser using that code.
-5. Lavalink prints a refresh token to the logs once you complete the login. Set
+`plugins.youtube.oauth` is enabled in `lavalink/application.yml`, but it does nothing until an
+account is linked: the plugin needs a refresh token, and `YOUTUBE_OAUTH_REFRESH_TOKEN` starts
+empty. OAuth is the plugin's own recommendation over the narrower WEB/WEBEMBEDDED-only poToken
+option.
+
+> **Use a burner Google account.** The plugin prints `DO NOT AUTHORISE WITH YOUR MAIN ACCOUNT`
+> for a reason: the linked account carries the ban risk if YouTube decides the traffic is
+> automated.
+
+1. With `YOUTUBE_OAUTH_REFRESH_TOKEN` empty, `docker compose up -d --force-recreate lavalink`,
+   then watch `docker compose logs -f lavalink`. Within a minute it prints a device code:
+
+   `OAUTH INTEGRATION: To give youtube-source access to your account, go to https://www.google.com/device and enter code XXX-XXX-XXXX`
+
+2. Open <https://www.google.com/device> in a browser, enter that code, and sign in with the
+   burner account.
+3. Lavalink prints a refresh token to the logs once the login completes. Set
    `YOUTUBE_OAUTH_REFRESH_TOKEN` to that value in `.env` — **never** paste it into
    `application.yml`, which is committed to the repo — then
    `docker compose up -d --force-recreate lavalink` once more so it persists across restarts
    without redoing the device login.
+
+The `clients:` list must keep `TV` for any of this to matter. OAuth is only ever applied to a
+client whose `supportsOAuth()` returns true, and in the plugin's source `TV` is the only one
+that overrides the default `false` — none of `MUSIC`/`ANDROID_VR`/`WEB`/`WEBEMBEDDED` ever send
+the token. Drop `TV` and a fully authenticated setup has zero effect: Lavalink logs `OAuth has
+been enabled without registering any OAuth-compatible clients` at startup and "This video
+requires login" persists identically.
+
+**The identifier is `TV`, not `TVHTML5`.** Lavalink _logs_ the resolved client as `TVHTML5`, so
+the wrong name reads as correct, but `ClientProvider` cannot resolve it — it emits one `Failed
+to resolve TVHTML5 into a Client` WARN and silently drops the entry, leaving OAuth inert with no
+other symptom. After editing the list, check the startup line:
+
+`YouTube source initialised with clients: WEB_REMIX, TVHTML5, ANDROID_VR, WEB, WEB_EMBEDDED_PLAYER`
+
+If `TVHTML5` is absent from it, the entry did not take.
 
 Even with OAuth correctly applied, success is not guaranteed for every video — YouTube's own
 age/region gating can still refuse a request regardless of account.

@@ -139,23 +139,31 @@ export async function startBot(config: AppConfig): Promise<void> {
   const playlists = new PlaylistService(playlistRepository, music);
   const livePanel = new LivePanelManager(client, music, logger);
 
+  /**
+   * Sends plain text to a guild text channel, staying silent when the channel is gone or the
+   * bot cannot post there. Shared by the track announcements, the playback-failure notice and
+   * the audio actions so all three degrade the same way.
+   */
+  const sendToTextChannel = async (channelId: string, content: string): Promise<void> => {
+    const channel =
+      client.channels.cache.get(channelId) ?? (await client.channels.fetch(channelId));
+    if (
+      channel?.type === ChannelType.GuildText &&
+      client.user !== null &&
+      channel
+        .permissionsFor(client.user)
+        ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
+    ) {
+      await channel.send(content);
+    }
+  };
+
   if (audioActionManifest !== undefined) {
     audioActions = new AudioActionService({
       actions: audioActionManifest.actions,
       baseUrl: config.audioActions.baseUrl,
       music,
-      sendMessage: async (channelId, message) => {
-        const channel = await client.channels.fetch(channelId);
-        if (
-          channel?.type === ChannelType.GuildText &&
-          client.user !== null &&
-          channel
-            .permissionsFor(client.user)
-            ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
-        ) {
-          await channel.send(message);
-        }
-      },
+      sendMessage: sendToTextChannel,
     });
     logger.info(
       { actions: audioActionManifest.actions.length, dir: config.audioActions.dir },
@@ -354,16 +362,10 @@ export async function startBot(config: AppConfig): Promise<void> {
         if (!guildSettings.announcementsEnabled) {
           return;
         }
-        const channel = client.channels.cache.get(player.textChannel);
-        if (
-          channel?.type === ChannelType.GuildText &&
-          client.user !== null &&
-          channel
-            .permissionsFor(client.user)
-            ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
-        ) {
-          await channel.send(`🎧 A tocar agora: **${track.info.title}** — ${track.info.author}`);
-        }
+        await sendToTextChannel(
+          player.textChannel,
+          `🎧 A tocar agora: **${track.info.title}** — ${track.info.author}`,
+        );
       })
       .catch((error: unknown) => {
         logger.warn({ error, guildId: player.guildId }, "Could not announce the track");
@@ -374,6 +376,19 @@ export async function startBot(config: AppConfig): Promise<void> {
       { error, guildId: player.guildId, track: track.info.title },
       "Track playback failed",
     );
+    // Poru skips to the next track on a TrackException/TrackStuck event, so without this the
+    // queue drains in silence and the bot just sits in the channel: /play already answered
+    // "added to the queue" long before the source failed. Deliberately not gated on
+    // `announcementsEnabled` - that toggle silences the now-playing notices, not failures.
+    void sendToTextChannel(
+      player.textChannel,
+      `⚠️ Não consegui reproduzir **${track.info.title}**. A passar à seguinte.`,
+    ).catch((sendError: unknown) => {
+      logger.warn(
+        { error: sendError, guildId: player.guildId },
+        "Could not report the playback failure",
+      );
+    });
   });
   poru.on("queueEnd", (player) => {
     void livePanel.refresh(player.guildId);
