@@ -9,6 +9,14 @@ services:
       # for the first boot: Lavalink then prints a device-login code to link a burner account.
       # See docs/canonical/operations.md.
       YOUTUBE_OAUTH_REFRESH_TOKEN: "${YOUTUBE_OAUTH_REFRESH_TOKEN:-}"
+      # Shared with the yt-cipher service below. Empty disables auth on it, which is tolerable
+      # only because it is never published off this private network.
+      YT_CIPHER_PASSWORD: "${YT_CIPHER_PASSWORD:-}"
+    depends_on:
+      # service_started, not service_healthy: yt-cipher's image is distroless (see below).
+      # Lavalink calls it lazily per track, so a brief head start is all this needs to buy.
+      yt-cipher:
+        condition: service_started
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     healthcheck:
@@ -57,6 +65,33 @@ services:
       retries: 3
       start_period: 30s
     mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - dijay-private
+
+  # Deciphers YouTube's signature/n-parameter challenges for Lavalink. Not optional: the
+  # plugin's own regex-based extraction fails on the current player script
+  # ("Must find sig function from script: .../player_embed.vflset/<locale>/base.js"), which
+  # blocks playback on the very last step even with OAuth working. Upstream's answer to that
+  # error is this service - see docs/canonical/operations.md.
+  yt-cipher:
+    # :master is a moving tag because the project publishes no versioned releases. Pin a
+    # digest here if reproducible deploys matter more than picking up its fixes automatically.
+    image: ghcr.io/kikkia/yt-cipher:master
+    restart: unless-stopped
+    environment:
+      API_TOKEN: "${YT_CIPHER_PASSWORD:-}"
+      # Upstream: only the IAS player variant works consistently, and the variant the plugin
+      # asks for (player_embed) is exactly the one that fails. Forcing IAS is the fix.
+      OVERRIDE_PLAYER_VARIANT: IAS
+    # No healthcheck: the image is a compiled Deno binary on distroless (entrypoint
+    # /app/server, user nonroot) with no shell, curl, nc or deno CLI to run a check with -
+    # verified by inspecting the image. Lavalink logs a cipher error per track if it is down.
+    mem_limit: 1g
     logging:
       driver: json-file
       options:
