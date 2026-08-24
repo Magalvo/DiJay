@@ -28,9 +28,37 @@ env flag, and adds `GatewayIntentBits.GuildVoiceStates` (already present).
 - **Refactor:** Isolate native/model concerns in infrastructure, document setup and the
   privacy stance, and run all gates.
 
-## Open Decisions
+## Resolved Decisions
 
-- Concrete STT adapter (Vosk vs whisper-based) and how the model is provisioned in the
-  Docker image (bundled vs volume-mounted).
-- Native module footprint (`@discordjs/voice`, `prism-media`, encryption library, Vosk
-  bindings) and its impact on the Alpine-based image.
+- **STT adapter:** `vosk-koffi` (the npm `vosk` package pulls the abandoned `ffi-napi`,
+  which does not build on Node 24). The model is **volume-mounted from the host**, not baked
+  into the image, so switching models needs no rebuild.
+- **Native footprint:** the voice packages are `optionalDependencies` and stay out of the
+  lean Alpine image. `Dockerfile.voice` (Debian/glibc) installs them for the voice
+  deployment; `tsconfig.build.json` excludes `src/infrastructure/voice/**`, which is
+  type-checked separately via `npm run typecheck:voice`.
+
+## Execution Record
+
+- **Red:** Grammar and service tests failed first, covering intent mapping, the optional
+  wake word, skip-vs-stop disambiguation, spoken volume levels, and ignoring unknown speech.
+- **Green:** Domain grammar, `VoiceCommandService`, the `SpeechToText` port, the Vosk
+  adapter, and the `/listen` capture path satisfied them.
+- **Refactor:** Native concerns isolated behind the port and a dynamic import; packaging
+  kept the production image unchanged.
+- **Gates:** `format:check`, `lint`, `typecheck`, `typecheck:voice`, tests, and `build` all
+  passed.
+
+### Post-deployment fixes
+
+Live use surfaced defects that unit tests could not reach, each fixed and re-verified:
+
+1. `/listen` hung forever — the capture promise only resolved on `end`/`error`, but the
+   timeout used `destroy()` (which emits `close`) and a silent speaker emits neither.
+2. `undefined is not iterable` — without `setMaxAlternatives`, Vosk returns `{ text }`, not
+   `{ alternatives }`.
+3. Silence surfaced as `The operation was aborted` instead of an empty capture.
+4. Accuracy was poor with open recognition, so the recognizer is now given a constrained
+   command grammar, and 48kHz→16kHz downmixing averages sample groups instead of dropping
+   samples.
+5. The transcript was logged at `info`; moved to `debug` during the August 2026 audit.
