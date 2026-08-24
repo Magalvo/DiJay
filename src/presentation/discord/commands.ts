@@ -3,6 +3,7 @@ import { type ChatInputCommandInteraction, MessageFlags } from "discord.js";
 import type { MusicService } from "../../application/music/music-service.js";
 import type { PlaylistService } from "../../application/playlists/playlist-service.js";
 import type { GuildSettingsService } from "../../application/settings/guild-settings-service.js";
+import type { PlaybackCheckResult } from "../../domain/diagnostics/playback-check.js";
 import type { LoopMode, QueuePlacement } from "../../domain/music/track.js";
 import type { DiscordCommand } from "./command.js";
 import { commandDataByName } from "./command-data.js";
@@ -32,6 +33,7 @@ export function createDiscordCommands(
   playlists: PlaylistService,
   livePanel: LivePanelManager,
   voiceListen?: (interaction: ChatInputCommandInteraction) => Promise<void>,
+  runPlaybackCheck?: () => Promise<PlaybackCheckResult>,
 ): readonly DiscordCommand[] {
   return [
     {
@@ -210,7 +212,42 @@ export function createDiscordCommands(
         await voiceListen(interaction);
       },
     },
+    {
+      data: data("diag"),
+      async execute(interaction) {
+        if (runPlaybackCheck === undefined) {
+          await interaction.reply({
+            content: "🩺 Verificação de reprodução desativada. Define `PLAYBACK_CHECK_ENABLED`.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        // The probe plays a track and waits for it to settle, so this runs well past the
+        // three-second window Discord allows for an initial reply.
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const result = await runPlaybackCheck();
+        await interaction.editReply(formatPlaybackCheck(result));
+      },
+    },
   ];
+}
+
+const CHECK_ICONS: Readonly<Record<PlaybackCheckResult["verdict"], string>> = {
+  failed: "🔴",
+  passed: "🟢",
+  skipped: "🟡",
+};
+
+export function formatPlaybackCheck(result: PlaybackCheckResult): string {
+  const lines = [
+    `${CHECK_ICONS[result.verdict]} **Verificação de reprodução: ${result.verdict}**`,
+    `Etapa alcançada: \`${result.reachedStage}\` · ${(result.durationMs / 1_000).toFixed(1)}s`,
+    result.detail,
+  ];
+  if (result.trackTitle !== null) {
+    lines.push(`Faixa: ${result.trackTitle}`);
+  }
+  return truncateDiscordMessage(lines.join("\n"));
 }
 
 function simpleControl(

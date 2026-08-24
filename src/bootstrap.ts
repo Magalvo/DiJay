@@ -4,6 +4,8 @@ import { ChannelType, Client, Events, GatewayIntentBits, PermissionFlagsBits } f
 import pino from "pino";
 import { Poru } from "poru";
 
+import { PlaybackSmokeCheck } from "./application/diagnostics/playback-smoke-check.js";
+import { PlaybackSmokeMonitor } from "./application/diagnostics/playback-smoke-monitor.js";
 import { IdlePlayerManager } from "./application/music/idle-player-manager.js";
 import { MusicService } from "./application/music/music-service.js";
 import {
@@ -24,6 +26,7 @@ import {
   type VoiceCommandServer,
 } from "./infrastructure/ipc/voice-command-server.js";
 import { PoruMusicGateway } from "./infrastructure/lavalink/poru-music-gateway.js";
+import { PoruPlaybackProbe } from "./infrastructure/lavalink/poru-playback-probe.js";
 import { openAppDatabase } from "./infrastructure/sqlite/database.js";
 import { SqliteGuildSettingsRepository } from "./infrastructure/sqlite/sqlite-guild-settings-repository.js";
 import { SqlitePlaylistRepository } from "./infrastructure/sqlite/sqlite-playlist-repository.js";
@@ -237,6 +240,42 @@ export async function startBot(config: AppConfig): Promise<void> {
     }
   }
 
+  // End-to-end playback check. Reaching the stream stage is the only outcome that proves
+  // anything, so a run that cannot get there reports `skipped`, never `passed`.
+  const smokeCheck = new PlaybackSmokeCheck(new PoruPlaybackProbe(poru), {
+    guildId: config.discord.guildId,
+    query: config.playbackCheck.query,
+    settleMs: 4_000,
+    timeoutMs: 20_000,
+    voiceChannelId: config.playbackCheck.voiceChannelId,
+  });
+  const smokeMonitor = new PlaybackSmokeMonitor(smokeCheck, {
+    report: async (result, kind) => {
+      const headline =
+        kind === "failing"
+          ? `🔴 A reprodução deixou de funcionar (etapa: ${result.reachedStage}).`
+          : "🟢 A reprodução voltou a funcionar.";
+      logger[kind === "failing" ? "error" : "info"]({ result }, "Playback smoke check changed");
+      if (config.playbackCheck.alertChannelId !== null) {
+        await sendToTextChannel(
+          config.playbackCheck.alertChannelId,
+          `${headline}\n${result.detail}`,
+        );
+      }
+    },
+  });
+  const runSmokeCheck = (): void => {
+    void smokeMonitor
+      .runOnce()
+      .then((result) => {
+        logger.info({ result }, "Playback smoke check");
+      })
+      .catch((error: unknown) => {
+        logger.error({ err: error }, "Playback smoke check could not run");
+      });
+  };
+  let smokeTimer: NodeJS.Timeout | undefined;
+
   const registry = new CommandRegistry(
     createDiscordCommands(
       music,
@@ -244,6 +283,7 @@ export async function startBot(config: AppConfig): Promise<void> {
       playlists,
       livePanel,
       voice === undefined ? undefined : (interaction) => voice.handleListen(interaction),
+      config.playbackCheck.enabled ? () => smokeMonitor.runOnce() : undefined,
     ),
     createMusicButtonHandlers(music, livePanel),
     logger,
@@ -287,6 +327,22 @@ export async function startBot(config: AppConfig): Promise<void> {
           { guilds: readyClient.guilds.cache.size, user: readyClient.user.tag },
           "DiJay is ready",
         );
+        if (config.playbackCheck.enabled) {
+          if (config.playbackCheck.voiceChannelId === null) {
+            logger.warn(
+              "Playback check enabled without PLAYBACK_CHECK_VOICE_CHANNEL_ID: it can only " +
+                "verify search, which stays green even when playback is silently broken",
+            );
+          }
+          const intervalMs = config.playbackCheck.intervalMinutes * 60_000;
+          smokeTimer = setInterval(runSmokeCheck, intervalMs);
+          smokeTimer.unref();
+          logger.info(
+            { intervalMinutes: config.playbackCheck.intervalMinutes },
+            "Playback smoke check scheduled",
+          );
+          runSmokeCheck();
+        }
       })
       .catch((error: unknown) => {
         logger.error({ error }, "Could not initialize Lavalink");
@@ -420,6 +476,9 @@ export async function startBot(config: AppConfig): Promise<void> {
     }
     shuttingDown = true;
     selfHeal.stop();
+    if (smokeTimer !== undefined) {
+      clearInterval(smokeTimer);
+    }
     registry.stopAccepting();
     health.beginShutdown();
     idlePlayers.clear();

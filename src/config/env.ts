@@ -23,6 +23,21 @@ const environmentSchema = z.object({
   LAVALINK_PORT: z.coerce.number().int().positive().max(65_535).default(2333),
   LAVALINK_SECURE: booleanFromString,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  // Periodic end-to-end playback check. YouTube breakages do not raise errors anywhere -
+  // search keeps resolving and the bot simply goes silent - so the only meaningful check
+  // plays a track for real and confirms the position advanced. Off by default because it
+  // needs a voice channel it is allowed to join.
+  PLAYBACK_CHECK_ALERT_CHANNEL_ID: z
+    .string()
+    .regex(/^\d{17,20}$/)
+    .optional(),
+  PLAYBACK_CHECK_ENABLED: booleanFromString,
+  PLAYBACK_CHECK_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(1_440).default(30),
+  PLAYBACK_CHECK_QUERY: z.string().trim().min(1).max(200).default("lofi hip hop radio"),
+  PLAYBACK_CHECK_VOICE_CHANNEL_ID: z
+    .string()
+    .regex(/^\d{17,20}$/)
+    .optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // Backstop for a process that is alive but stuck (e.g. a zombied Discord gateway
   // connection): if unhealthy for this long, the process logs a diagnostic and exits so the
@@ -123,6 +138,15 @@ export interface AppConfig {
   };
   readonly logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
   readonly nodeEnv: "development" | "test" | "production";
+  readonly playbackCheck: {
+    /** Where failures are reported; null keeps them in the logs only. */
+    readonly alertChannelId: string | null;
+    readonly enabled: boolean;
+    readonly intervalMinutes: number;
+    readonly query: string;
+    /** Channel the probe joins; null means the stream stage cannot be verified. */
+    readonly voiceChannelId: string | null;
+  };
   readonly selfHeal: {
     readonly enabled: boolean;
     readonly gracePeriodSeconds: number;
@@ -190,6 +214,13 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
     },
     logLevel: result.data.LOG_LEVEL,
     nodeEnv: result.data.NODE_ENV,
+    playbackCheck: {
+      alertChannelId: result.data.PLAYBACK_CHECK_ALERT_CHANNEL_ID ?? null,
+      enabled: result.data.PLAYBACK_CHECK_ENABLED,
+      intervalMinutes: result.data.PLAYBACK_CHECK_INTERVAL_MINUTES,
+      query: result.data.PLAYBACK_CHECK_QUERY,
+      voiceChannelId: result.data.PLAYBACK_CHECK_VOICE_CHANNEL_ID ?? null,
+    },
     selfHeal: {
       enabled: result.data.SELF_HEAL_ENABLED,
       gracePeriodSeconds: result.data.SELF_HEAL_GRACE_PERIOD_SECONDS,
