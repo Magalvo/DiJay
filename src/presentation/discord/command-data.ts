@@ -213,6 +213,9 @@ export const commandData = [
   new SlashCommandBuilder().setName("help").setDescription("Mostra os comandos disponíveis."),
   new SlashCommandBuilder().setName("ping").setDescription("Verifica a latência do bot."),
   new SlashCommandBuilder()
+    .setName("diag")
+    .setDescription("Testa a reprodução de ponta a ponta e diz onde falhou."),
+  new SlashCommandBuilder()
     .setName("listen")
     .setDescription("Ouve um comando de voz durante alguns segundos (experimental)."),
 ].map((builder) => builder.setContexts(InteractionContextType.Guild));

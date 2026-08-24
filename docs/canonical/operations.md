@@ -82,6 +82,41 @@ tracks, albums, and user-created/shared playlists are the supported Spotify targ
 If the tokener overlay is not deployed, unreachable, or broken, Spotify links should fail
 gracefully while other Lavalink sources keep working.
 
+## Playback smoke check (early warning)
+
+Both failure modes below are silent: nothing errors, `/play` still answers normally, and the
+breakage is usually discovered when someone complains. This check is the early warning.
+
+It runs on a schedule, plays a real track at volume 0 in a chosen voice channel, and confirms
+the playback position advanced. That last step is the point — search resolving proves nothing,
+since the common failure keeps search working while the stream dies. A run that cannot reach
+the stream stage reports `skipped`, never `passed`.
+
+Enable it in `.env`:
+
+```
+PLAYBACK_CHECK_ENABLED=true
+PLAYBACK_CHECK_VOICE_CHANNEL_ID=<a voice channel the bot may join>
+PLAYBACK_CHECK_ALERT_CHANNEL_ID=<text channel for alerts>
+PLAYBACK_CHECK_INTERVAL_MINUTES=30
+```
+
+Behaviour worth knowing:
+
+- **It never interrupts anyone.** If a player already exists for the guild (someone is
+  listening), the run skips itself.
+- **It alerts on transitions, not on every run**: one message when playback breaks, one when
+  it recovers. Without an alert channel the result stays in the logs.
+- **Without `PLAYBACK_CHECK_VOICE_CHANNEL_ID`** it can only verify search, so it reports
+  `skipped` and logs a warning at startup. Treat that as "unverified", not "healthy".
+- **`/diag`** runs the same check on demand and replies privately with the stage reached.
+  Register commands after deploying, since `/diag` is new.
+
+Read the verdict as: `passed` → audio really flowed; `failed` → the `reachedStage` field says
+which layer broke (`node`, `resolve`, or `stream`); `skipped` → nothing was proven.
+
+A `failed` at the `stream` stage is the signature of the second failure mode below.
+
 ## Troubleshooting: YouTube playback breaks
 
 YouTube tightens its anti-bot/anti-scraper measures periodically, breaking `youtube-plugin` in
