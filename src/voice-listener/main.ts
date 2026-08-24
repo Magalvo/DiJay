@@ -418,7 +418,12 @@ async function main(): Promise<void> {
             transcript,
             userId,
           });
-          logger.info({ message: outcome.message, transcript }, "Wake command executed");
+          // Never log what was said at info level: hands-free listening means this fires on
+          // every wake-word utterance, and container logs persist. Keep the operational
+          // signal (did it run, was it understood) content-free, and put the transcript
+          // behind `debug`, which is off unless an operator opts in to diagnose recognition.
+          logger.info({ handled: outcome.handled }, "Wake command executed");
+          logger.debug({ message: outcome.message, transcript }, "Wake command transcript");
         })
         .catch((error: unknown) => {
           logger.error({ err: error }, "Wake-word capture failed");
