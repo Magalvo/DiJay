@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MusicError } from "../../../src/domain/music/music-error.js";
+import { MAX_PLAYLIST_TRACKS } from "../../../src/domain/playlists/playlist.js";
 import {
   musicErrorMessages,
   userFacingMusicError,
@@ -40,5 +41,14 @@ describe("userFacingMusicError", () => {
     const error = new MusicError("NOTHING_PLAYING", "There is no active playback in this server.");
 
     expect(userFacingMusicError(error)).not.toContain("active playback");
+  });
+});
+
+describe("playlist capacity in user-facing text", () => {
+  // The cap used to be written out as a literal in three places, so the reply could claim a
+  // number the repository no longer enforced. Anchoring the text to the constant is what makes
+  // that drift impossible, so the anchoring itself is what is tested here.
+  it("reports the real cap in the PLAYLIST_FULL message", () => {
+    expect(musicErrorMessages.PLAYLIST_FULL).toContain(String(MAX_PLAYLIST_TRACKS));
   });
 });

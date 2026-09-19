@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { MAX_PLAYLIST_TRACKS } from "../../../src/domain/playlists/playlist.js";
 import { openAppDatabase } from "../../../src/infrastructure/sqlite/database.js";
 import { SqliteGuildSettingsRepository } from "../../../src/infrastructure/sqlite/sqlite-guild-settings-repository.js";
 import { SqlitePlaylistRepository } from "../../../src/infrastructure/sqlite/sqlite-playlist-repository.js";
@@ -93,10 +94,10 @@ describe("SQLite repositories", () => {
     ]);
   });
 
-  it("imports many tracks at once and reports the overflow past the 100 limit", async () => {
+  it("imports many tracks at once and reports the overflow past the cap", async () => {
     const repository = new SqlitePlaylistRepository(database);
     await repository.create("guild-1", "Import", "user-1");
-    const tracks = Array.from({ length: 102 }, (_, index) => ({
+    const tracks = Array.from({ length: MAX_PLAYLIST_TRACKS + 2 }, (_, index) => ({
       author: "Artist",
       durationMs: 180_000,
       isStream: false,
@@ -106,13 +107,23 @@ describe("SQLite repositories", () => {
 
     const result = await repository.addTracks("guild-1", "Import", tracks);
 
-    expect(result.added).toHaveLength(100);
+    expect(result.added).toHaveLength(MAX_PLAYLIST_TRACKS);
     expect(result.skipped).toBe(2);
     expect(result.added[0]).toMatchObject({ position: 1 });
-    expect(result.added[99]).toMatchObject({ position: 100 });
+    expect(result.added[MAX_PLAYLIST_TRACKS - 1]).toMatchObject({
+      position: MAX_PLAYLIST_TRACKS,
+    });
 
     const playlist = await repository.getByName("guild-1", "Import");
-    expect(playlist?.tracks).toHaveLength(100);
+    expect(playlist?.tracks).toHaveLength(MAX_PLAYLIST_TRACKS);
+  });
+
+  // The cap exists to hold a whole Spotify playlist, which LavaSrc delivers in pages of 100
+  // (playlistLoadLimit in lavalink/application.yml). A cap that is not a whole number of those
+  // pages would truncate an import mid-page for no reason.
+  it("caps a playlist at a whole number of LavaSrc pages", () => {
+    expect(MAX_PLAYLIST_TRACKS % 100).toBe(0);
+    expect(MAX_PLAYLIST_TRACKS).toBeGreaterThanOrEqual(600);
   });
 
   it("appends imported tracks after existing ones", async () => {
@@ -132,7 +143,7 @@ describe("SQLite repositories", () => {
     expect(result).toEqual({ added: [{ position: 2, track: newTrack }], skipped: 0 });
   });
 
-  it("enforces the 100-track playlist limit", async () => {
+  it("enforces the playlist track cap", async () => {
     const repository = new SqlitePlaylistRepository(database);
     await repository.create("guild-1", "Maximum", "user-1");
     const track = {
@@ -143,12 +154,16 @@ describe("SQLite repositories", () => {
       uri: "https://example.test/track",
     };
 
-    for (let index = 0; index < 100; index += 1) {
-      await repository.addTrack("guild-1", "Maximum", {
+    // Filled in one bulk insert rather than a loop of single inserts: at the current cap that
+    // would be hundreds of round trips, and this test is about the boundary, not the insert path.
+    await repository.addTracks(
+      "guild-1",
+      "Maximum",
+      Array.from({ length: MAX_PLAYLIST_TRACKS }, (_, index) => ({
         ...track,
         title: `Track ${index + 1}`,
-      });
-    }
+      })),
+    );
 
     await expect(repository.addTrack("guild-1", "Maximum", track)).rejects.toMatchObject({
       code: "PLAYLIST_FULL",
