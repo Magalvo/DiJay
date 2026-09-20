@@ -49,9 +49,16 @@ const environmentSchema = z.object({
     .default("true")
     .transform((value) => value === "true"),
   SELF_HEAL_GRACE_PERIOD_SECONDS: z.coerce.number().int().min(30).max(3_600).default(180),
+  // Web API credentials for /playlist import (WI-023). These are the bot's own, separate from
+  // whatever LavaSrc uses for link resolution. The refresh token is a USER token: playlist
+  // contents are only readable as the account that owns the playlist, so client credentials
+  // alone cannot do this. Import stays disabled until all three are present.
+  SPOTIFY_CLIENT_ID: z.string().trim().default(""),
+  SPOTIFY_CLIENT_SECRET: z.string().trim().default(""),
   // Descriptive only: Spotify resolution lives in Lavalink/LavaSrc, usually via the
   // spotify-tokener compose overlay. The bot reads this only for the startup log.
   SPOTIFY_ENABLED: booleanFromString,
+  SPOTIFY_REFRESH_TOKEN: z.string().trim().default(""),
   // Second Discord app used only by the voice-listener sidecar (WI-013).
   VOICE_BOT_CLIENT_ID: z.string().trim().default(""),
   VOICE_BOT_TOKEN: z.string().trim().default(""),
@@ -152,7 +159,12 @@ export interface AppConfig {
     readonly gracePeriodSeconds: number;
   };
   readonly spotify: {
+    readonly clientId: string;
+    readonly clientSecret: string;
     readonly enabled: boolean;
+    /** True only when all three credentials are present, so /playlist import can work. */
+    readonly importEnabled: boolean;
+    readonly refreshToken: string;
   };
   readonly voice: {
     readonly enabled: boolean;
@@ -226,7 +238,14 @@ export function parseEnv(environment: Record<string, string | undefined>): AppCo
       gracePeriodSeconds: result.data.SELF_HEAL_GRACE_PERIOD_SECONDS,
     },
     spotify: {
+      clientId: result.data.SPOTIFY_CLIENT_ID,
+      clientSecret: result.data.SPOTIFY_CLIENT_SECRET,
       enabled: result.data.SPOTIFY_ENABLED,
+      importEnabled:
+        result.data.SPOTIFY_CLIENT_ID !== "" &&
+        result.data.SPOTIFY_CLIENT_SECRET !== "" &&
+        result.data.SPOTIFY_REFRESH_TOKEN !== "",
+      refreshToken: result.data.SPOTIFY_REFRESH_TOKEN,
     },
     voice: {
       enabled: result.data.VOICE_ENABLED,

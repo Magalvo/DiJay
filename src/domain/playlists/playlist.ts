@@ -30,6 +30,19 @@ export interface PlaylistPlaybackResult {
   readonly failed: number;
 }
 
+export interface SpotifyImportResult {
+  /** Tracks stored, after matching and after the playlist cap. */
+  readonly added: number;
+  /** Tracks Spotify listed but no playable match was found for. */
+  readonly unmatched: number;
+  /** Tracks matched but dropped because the playlist hit MAX_PLAYLIST_TRACKS. */
+  readonly skipped: number;
+  /** The playlist name as Spotify has it, for the confirmation message. */
+  readonly sourceName: string;
+  /** How many tracks the Spotify playlist holds upstream. */
+  readonly sourceTotal: number;
+}
+
 export interface PlaylistImportResult {
   readonly added: readonly PlaylistTrack[];
   readonly skipped: number;

@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "register:commands": "tsx src/presentation/discord/register-commands.ts",
+    "spotify:authorize": "tsx src/infrastructure/spotify/authorize-spotify.ts",
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",

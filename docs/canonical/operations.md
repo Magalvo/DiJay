@@ -82,6 +82,50 @@ tracks, albums, and user-created/shared playlists are the supported Spotify targ
 If the tokener overlay is not deployed, unreachable, or broken, Spotify links should fail
 gracefully while other Lavalink sources keep working.
 
+## Spotify playlist import (/playlist import)
+
+Separate from LavaSrc's Spotify link handling above, and deliberately so: this is the bot's own
+Web API client, used only to read the track list of a playlist. Every track is matched to a
+playable source during the import and it is that match which is stored, so playback never touches
+Spotify and is unaffected by its quota and token problems.
+
+**Only playlists owned by (or shared with) the linked account can be imported.** Other people's
+public playlists answer 403 and Spotify-generated ones (Discover Weekly, Daily Mix, editorial)
+answer 404. That is Spotify's Development Mode, not a bot limitation, and no credential fixes it.
+
+Client credentials alone cannot do this either. Spotify returns the playlist with its track list
+omitted, and the items endpoint refuses outright; the contents are only readable as the account
+that owns the playlist. Hence a user token.
+
+### Setup, once
+
+1. Create an app at <https://developer.spotify.com/dashboard>, using the account whose playlists
+   you want to import. Put its id and secret in `.env` as `SPOTIFY_CLIENT_ID` and
+   `SPOTIFY_CLIENT_SECRET`.
+2. Run the helper and follow what it prints:
+
+   `npm run spotify:authorize`
+
+   It tells you the exact Redirect URI to register on the app (`http://127.0.0.1:8888/callback`
+   - the literal IP, since Spotify only allows plain HTTP on the numeric loopback), then prints
+     an authorisation URL. Open it, approve with that same account, and it prints the
+     `SPOTIFY_REFRESH_TOKEN=` line to paste into `.env`. The scopes are read-only.
+
+3. Restart the bot. The startup log says whether import is enabled; with any of the three
+   credentials missing it stays off and logs which ones to set.
+
+The refresh token does not expire, but it is revocable from the Spotify account page. If import
+starts failing with "A ligação ao Spotify expirou ou foi revogada", re-run step 2 - that message
+exists specifically so a revoked token is not mistaken for an outage.
+
+### What to expect from an import
+
+Matching uses the ISRC, which identifies the exact recording rather than the song - it returns
+the album master where an artist/title search tends to return a shorter video edit. Measured on a
+real 125-track playlist: 122 matched, 3 unmatched, 195 ms per track. A full 600-track playlist
+therefore takes roughly two minutes, and the reply reports how many were unmatched and how many
+were past the playlist cap.
+
 ## Playback smoke check (early warning)
 
 Both failure modes below are silent: nothing errors, `/play` still answers normally, and the
