@@ -26,6 +26,7 @@ import {
   type VoiceCommandServer,
 } from "./infrastructure/ipc/voice-command-server.js";
 import { PoruMusicGateway } from "./infrastructure/lavalink/poru-music-gateway.js";
+import { SpotifyWebApiCatalog } from "./infrastructure/spotify/spotify-web-api-catalog.js";
 import { PoruPlaybackProbe } from "./infrastructure/lavalink/poru-playback-probe.js";
 import { openAppDatabase } from "./infrastructure/sqlite/database.js";
 import { SqliteGuildSettingsRepository } from "./infrastructure/sqlite/sqlite-guild-settings-repository.js";
@@ -48,11 +49,17 @@ export async function startBot(config: AppConfig): Promise<void> {
       : undefined,
   );
   logger.info(
-    { spotify: config.spotify.enabled },
+    { spotify: config.spotify.enabled, spotifyImport: config.spotify.importEnabled },
     config.spotify.enabled
       ? "Spotify links enabled (anonymous token via spotify-tokener)"
       : "Spotify not configured; Spotify links will not resolve",
   );
+  if (!config.spotify.importEnabled) {
+    logger.info(
+      "Spotify import disabled: set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and " +
+        "SPOTIFY_REFRESH_TOKEN to enable /playlist import",
+    );
+  }
   const health = new HealthState();
 
   // Self-heal backstop: if the bot is alive but stuck (discord/lavalink unhealthy) for longer
@@ -139,7 +146,14 @@ export async function startBot(config: AppConfig): Promise<void> {
     },
   );
   const music = new MusicService(new PoruMusicGateway(poru, settingsRepository));
-  const playlists = new PlaylistService(playlistRepository, music);
+  const spotifyCatalog = config.spotify.importEnabled
+    ? new SpotifyWebApiCatalog({
+        clientId: config.spotify.clientId,
+        clientSecret: config.spotify.clientSecret,
+        refreshToken: config.spotify.refreshToken,
+      })
+    : undefined;
+  const playlists = new PlaylistService(playlistRepository, music, spotifyCatalog);
   const livePanel = new LivePanelManager(client, music, logger);
 
   /**

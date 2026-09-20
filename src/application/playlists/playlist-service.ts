@@ -1,12 +1,16 @@
 import type { PlaybackRequest } from "../music/music-gateway.js";
 import type { MusicService } from "../music/music-service.js";
 import { MusicError } from "../../domain/music/music-error.js";
-import type {
-  Playlist,
-  PlaylistImportResult,
-  PlaylistPlaybackResult,
-  PlaylistTrack,
+import type { Track } from "../../domain/music/track.js";
+import {
+  MAX_PLAYLIST_TRACKS,
+  type Playlist,
+  type PlaylistImportResult,
+  type PlaylistPlaybackResult,
+  type PlaylistTrack,
+  type SpotifyImportResult,
 } from "../../domain/playlists/playlist.js";
+import type { SpotifyCatalog } from "../spotify/spotify-catalog.js";
 import type { PlaylistRepository } from "./playlist-repository.js";
 
 const MAX_PLAYLIST_NAME_LENGTH = 40;
@@ -25,7 +29,64 @@ export class PlaylistService {
   public constructor(
     private readonly repository: PlaylistRepository,
     private readonly music: MusicService,
+    private readonly spotify?: SpotifyCatalog,
   ) {}
+
+  /**
+   * Fills a playlist from a Spotify playlist.
+   *
+   * Spotify is used for the track list only. Every track is matched to a playable source here,
+   * at import time, and it is that match which is stored - so playback never touches Spotify
+   * again and is unaffected by its token and quota problems.
+   *
+   * Matching prefers the ISRC, which identifies the exact recording rather than the song: an
+   * ISRC search returns the album master where an artist/title search tends to return a video
+   * edit of a different length. Tracks without an ISRC (local files, some uploads) fall back to
+   * artist and title.
+   */
+  public async importFromSpotify(
+    guildId: string,
+    name: string,
+    reference: string,
+    requesterId: string,
+  ): Promise<SpotifyImportResult> {
+    if (this.spotify === undefined) {
+      throw new MusicError("SPOTIFY_NOT_CONFIGURED", "Spotify import is not configured.");
+    }
+    await this.get(guildId, name);
+    const source = await this.spotify.getPlaylist(reference, MAX_PLAYLIST_TRACKS);
+
+    const matched: Track[] = [];
+    let unmatched = 0;
+    for (const track of source.tracks) {
+      const query = track.isrc === null ? `${track.artist} - ${track.title}` : `"${track.isrc}"`;
+      try {
+        const selection = await this.music.resolveSelection(query, requesterId);
+        const first = selection.tracks[0];
+        if (first === undefined) {
+          unmatched += 1;
+          continue;
+        }
+        matched.push(first);
+      } catch (error) {
+        if (error instanceof MusicError && ABORTING_CODES.has(error.code)) {
+          throw error;
+        }
+        // One unresolvable or transient failure must not cost the whole import, which can be
+        // hundreds of tracks and minutes of work.
+        unmatched += 1;
+      }
+    }
+
+    const stored = await this.repository.addTracks(guildId, this.validName(name), matched);
+    return {
+      added: stored.added.length,
+      skipped: stored.skipped,
+      sourceName: source.name,
+      sourceTotal: source.total,
+      unmatched,
+    };
+  }
 
   public create(guildId: string, name: string, createdBy: string): Promise<Playlist> {
     return this.repository.create(guildId, this.validName(name), createdBy);

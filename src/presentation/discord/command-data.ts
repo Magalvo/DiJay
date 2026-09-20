@@ -174,6 +174,20 @@ export const commandData = [
     )
     .addSubcommand((subcommand) =>
       subcommand
+        .setName("import")
+        .setDescription("Importa as faixas de uma playlist do Spotify.")
+        .addStringOption((option) =>
+          option.setName("name").setDescription("Nome").setRequired(true),
+        )
+        .addStringOption((option) =>
+          option
+            .setName("url")
+            .setDescription("Link da playlist do Spotify (tem de ser da conta ligada)")
+            .setRequired(true),
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
         .setName("add")
         .setDescription("Adiciona uma faixa.")
         .addStringOption((option) =>

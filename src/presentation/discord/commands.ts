@@ -361,6 +361,26 @@ async function executePlaylist(
     );
     return;
   }
+  if (subcommand === "import") {
+    // Matching every track against Lavalink takes roughly a second each, so a few hundred
+    // tracks run for minutes: the reply has to be deferred or Discord times the interaction out.
+    await interaction.deferReply();
+    const result = await playlists.importFromSpotify(
+      guildId,
+      name!,
+      interaction.options.getString("url", true),
+      interaction.user.id,
+    );
+    const notes = [
+      result.unmatched > 0 ? `${result.unmatched} sem correspondência` : null,
+      result.skipped > 0 ? `${result.skipped} acima do limite de ${MAX_PLAYLIST_TRACKS}` : null,
+    ].filter((note) => note !== null);
+    await interaction.editReply(
+      `🎧 **${result.sourceName}**: ${result.added} de ${result.sourceTotal} faixas importadas para **${name!}**` +
+        (notes.length > 0 ? ` (${notes.join(", ")})` : ""),
+    );
+    return;
+  }
   if (subcommand === "add") {
     await interaction.deferReply();
     const result = await playlists.add(
