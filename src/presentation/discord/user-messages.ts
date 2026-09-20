@@ -1,4 +1,5 @@
 import { MusicError } from "../../domain/music/music-error.js";
+import { MAX_PLAYLIST_TRACKS } from "../../domain/playlists/playlist.js";
 
 /** Portuguese, user-facing text for each domain error code. */
 export const musicErrorMessages: Record<MusicError["code"], string> = {
@@ -13,7 +14,7 @@ export const musicErrorMessages: Record<MusicError["code"], string> = {
   NOTHING_PLAYING: "Não há música em reprodução neste servidor.",
   NOT_IN_SAME_VOICE_CHANNEL: "Entra no mesmo canal de voz do bot para usar este controlo.",
   PLAYLIST_EXISTS: "Já existe uma playlist com esse nome.",
-  PLAYLIST_FULL: "A playlist já atingiu o limite de 100 faixas.",
+  PLAYLIST_FULL: `A playlist já atingiu o limite de ${MAX_PLAYLIST_TRACKS} faixas.`,
   PLAYLIST_NOT_FOUND: "Não encontrei essa playlist.",
   QUEUE_EMPTY: "Não existem músicas suficientes na fila.",
   TRACK_NOT_FOUND: "Não encontrei nenhuma faixa para essa pesquisa.",

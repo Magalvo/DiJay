@@ -3,14 +3,13 @@ import type { DatabaseSync } from "node:sqlite";
 import type { PlaylistRepository } from "../../application/playlists/playlist-repository.js";
 import { MusicError } from "../../domain/music/music-error.js";
 import type { Track } from "../../domain/music/track.js";
-import type {
-  Playlist,
-  PlaylistImportResult,
-  PlaylistTrack,
+import {
+  MAX_PLAYLIST_TRACKS,
+  type Playlist,
+  type PlaylistImportResult,
+  type PlaylistTrack,
 } from "../../domain/playlists/playlist.js";
 import { withTransaction } from "./database.js";
-
-const MAX_PLAYLIST_TRACKS = 100;
 
 interface PlaylistRow {
   created_by: string;
@@ -82,7 +81,10 @@ export class SqlitePlaylistRepository implements PlaylistRepository {
           .prepare("SELECT COUNT(*) AS count FROM playlist_tracks WHERE playlist_id = ?")
           .get(playlist.id) as unknown as { count: number };
         if (countRow.count >= MAX_PLAYLIST_TRACKS) {
-          throw new MusicError("PLAYLIST_FULL", "A playlist can contain at most 100 tracks.");
+          throw new MusicError(
+            "PLAYLIST_FULL",
+            `A playlist can contain at most ${MAX_PLAYLIST_TRACKS} tracks.`,
+          );
         }
         const position = countRow.count + 1;
         this.database

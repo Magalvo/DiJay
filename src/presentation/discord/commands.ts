@@ -5,6 +5,7 @@ import type { PlaylistService } from "../../application/playlists/playlist-servi
 import type { GuildSettingsService } from "../../application/settings/guild-settings-service.js";
 import type { PlaybackCheckResult } from "../../domain/diagnostics/playback-check.js";
 import type { LoopMode, QueuePlacement } from "../../domain/music/track.js";
+import { MAX_PLAYLIST_TRACKS } from "../../domain/playlists/playlist.js";
 import type { DiscordCommand } from "./command.js";
 import { commandDataByName } from "./command-data.js";
 import { buildControlPanel } from "./control-panel.js";
@@ -369,7 +370,8 @@ async function executePlaylist(
       interaction.user.id,
     );
     const first = result.added[0]!;
-    const overflow = result.skipped > 0 ? ` (${result.skipped} ignoradas — limite de 100)` : "";
+    const overflow =
+      result.skipped > 0 ? ` (${result.skipped} ignoradas — limite de ${MAX_PLAYLIST_TRACKS})` : "";
     await interaction.editReply(
       result.added.length === 1
         ? `➕ Adicionada em ${first.position}: ${formatTrack(first.track)}`
